@@ -1,0 +1,4 @@
+# missed tickets script requirements
+requests
+pymongo
+celery
