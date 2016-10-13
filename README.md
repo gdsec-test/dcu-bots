@@ -1,4 +1,4 @@
 # dcu-bots
-Home for bots
-API Bot
+Home for bots\n
+API Bot\n
 Queue Bot
