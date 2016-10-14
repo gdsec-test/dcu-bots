@@ -24,7 +24,7 @@ collection = db.incidents
 
 # Set the SNOW request parameters (changed to limit 2 tickets temp testing)
 # url = 'https://godaddydev.service-now.com/api/now/table/u_dcu_ticket?sysparm_query=u_closed%3Dfalse%5Esys_created_onRELATIVELE%40hour%40ago%4072&sysparm_limit=15'
-url = 'https://godaddy.service-now.com/api/now/table/u_dcu_ticket?sysparm_query=u_closed%3Dfalse%5Esys_created_onRELATIVELE%40hour%40ago%4072&sysparm_limit=20000'
+url = 'https://godaddy.service-now.com/api/now/table/u_dcu_ticket?sysparm_query=u_closed%3Dfalse%5E&sysparm_limit=20000'
 
 
 # SNOW DEV creds
@@ -91,6 +91,9 @@ def pass_to_middleware(list_for_middleware):
     # Celery setup
     # api_queue = 'devdcumiddleware'
     print ('Number of missing tickets: {}'.format(len(list_for_middleware)))
+
+    # Un-comment the following "return" in order to see the current number of missing tickets without sending them to middleware
+    #return
     api_queue = 'dcumiddleware'
     api_task = 'run.process'
     capp = Celery()
