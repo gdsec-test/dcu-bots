@@ -1,53 +1,9 @@
 import requests
+import os
 from celery import Celery
 from celeryconfig import CeleryConfig
 from pymongo import MongoClient
-
-
-# creating pymongo settings
-# set client connection
-# client = MongoClient('mongodb://10.22.188.208:27017/')
-client = MongoClient('mongodb://10.22.9.209:27017/')
-
-# authenticating to client
-# client.devphishstory.authenticate('devuser', 'phishstory', mechanism='SCRAM-SHA-1')
-client.phishstory.authenticate('sau_p_phish', 'qn9ddQhu55duSCx', mechanism='MONGODB-CR')
-
-# getting the mongo db
-# db = client.devphishstory
-db = client.phishstory
-
-
-# getting the collection
-collection = db.incidents
-
-
-# Set the SNOW request parameters (changed to limit 2 tickets temp testing)
-# url = 'https://godaddydev.service-now.com/api/now/table/u_dcu_ticket?sysparm_query=u_closed%3Dfalse%5Esys_created_onRELATIVELE%40hour%40ago%4072&sysparm_limit=15'
-url = 'https://godaddy.service-now.com/api/now/table/u_dcu_ticket?sysparm_query=u_closed%3Dfalse%5E&sysparm_limit=20000'
-
-
-# SNOW DEV creds
-# user = 'dcuapi'
-# pwd = 'fQSNS24etPez'
-
-# SNOW PROD creds
-user = 'dcuapi'
-pwd = 'fQSNS24etPez'
-
-# Set proper SNOW request headers headers
-headers = {"Content-Type": "application/json", "Accept": "application/json"}
-
-# Do the HTTP request to SNOW
-response = requests.get(url, auth=(user, pwd), headers=headers)
-
-# Check for HTTP response codes from SNOW for other than 200
-if response.status_code != 200:
-    print('Status:', response.status_code, 'Headers:', response.headers, 'Error Response:', response.json())
-    exit()
-
-# Decode the SNOW JSON response into a dictionary and use the data
-data = response.json()
+from ConfigParser import SafeConfigParser
 
 
 def get_snow_tickets():
@@ -87,24 +43,55 @@ def data_for_celery(celery_tickets):
     return list_for_middleware
 
 
-def pass_to_middleware(list_for_middleware):
+def pass_to_middleware(list_for_middleware, settings):
     # Celery setup
-    # api_queue = 'devdcumiddleware'
     print ('Number of missing tickets: {}'.format(len(list_for_middleware)))
 
     # Un-comment the following "return" in order to see the current number of missing tickets without sending them to middleware
-    #return
-    api_queue = 'dcumiddleware'
-    api_task = 'run.process'
+    # return
     capp = Celery()
-    capp.config_from_object(CeleryConfig(api_task, api_queue))
+    capp.config_from_object(CeleryConfig(settings))
     for dictionary in list_for_middleware:
-        capp.send_task(api_task, (dictionary,))
+        capp.send_task(settings.get('celery_task'), (dictionary,))
 
-ticket_numbers = get_snow_tickets()
 
-celery_tickets = check_mongo(ticket_numbers)
+if __name__ == '__main__':
+    mode = os.getenv('sysenv') or 'dev'
 
-list_for_middleware = data_for_celery(celery_tickets)
+    configp = SafeConfigParser()
+    configp.read('missed_tickets_settings.ini')
 
-pass_to_middleware(list_for_middleware)
+    settings = dict(configp.items(mode))
+
+    # creating pymongo settings
+    client = MongoClient(settings.get('db_url'))
+
+    # authenticating to client
+    client[settings.get('db')].authenticate(settings.get('db_user'), settings.get('db_pass'),
+                                            mechanism=settings.get('db_auth_mechanism'))
+
+    # getting the mongo db
+    db = client[settings.get('db')]
+
+    # getting the collection
+    collection = db.incidents
+
+    # Set proper SNOW request headers headers
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+
+    # Do the HTTP request to SNOW
+    response = requests.get(settings.get('snow_url'), auth=(settings.get('snow_user'), settings.get('snow_pass')),
+                            headers=headers)
+
+    # Check for HTTP response codes from SNOW for other than 200
+    if response.status_code != 200:
+        print('Status:', response.status_code, 'Headers:', response.headers, 'Error Response:', response.json())
+        exit()
+
+    # Decode the SNOW JSON response into a dictionary and use the data
+    data = response.json()
+
+    ticket_numbers = get_snow_tickets()
+    celery_tickets = check_mongo(ticket_numbers)
+    list_for_middleware = data_for_celery(celery_tickets)
+    pass_to_middleware(list_for_middleware, settings)
