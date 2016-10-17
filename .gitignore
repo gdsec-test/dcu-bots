@@ -59,3 +59,9 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+
+# docker-compose
+docker-compose.yml
+
+# settings files
+*.ini
