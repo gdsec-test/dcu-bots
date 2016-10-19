@@ -10,6 +10,8 @@ NOTE: Each script will look for an ```.ini``` file to read its settings from. Th
 
 ```
 [prod]
+slack_url = https://hooks.slack.com/services/<secret>/<secret>/<secret>
+slack_channel = <#somechannel>
 db_url = mongodb://<127.0.0.1:27017/ >
 db_user = <user>
 db_pass = <pass>
@@ -26,6 +28,8 @@ broker_url = infosec-rmq-v01.prod.phx3.secureserver.net:5672/grandma
 
 
 [dev]
+slack_url = https://hooks.slack.com/services/<secret>/<secret>/<secret>
+slack_channel = <#somechannel>
 db_url = mongodb://<127.0.0.1:27017/ >
 db_user = <user>
 db_pass = <pass>
