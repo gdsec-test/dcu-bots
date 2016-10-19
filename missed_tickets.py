@@ -1,9 +1,12 @@
-import requests
+import json
 import os
-from celery import Celery
-from celeryconfig import CeleryConfig
-from pymongo import MongoClient
 from ConfigParser import SafeConfigParser
+
+import requests
+from celery import Celery
+from pymongo import MongoClient
+
+from celeryconfig import CeleryConfig
 
 
 def get_snow_tickets():
@@ -55,6 +58,20 @@ def pass_to_middleware(list_for_middleware, settings):
         capp.send_task(settings.get('celery_task'), (dictionary,))
 
 
+def write_to_slack(endpoint, channel, mdata):
+    if len(mdata):
+        message = '<!channel> {} items not sent to middleware'.format(len(mdata)) + '\n'
+        for i in mdata:
+            message += i.get('ticketId') + '\n'
+        payload = {'payload': json.dumps({
+            'channel': channel,
+            'username': 'API BOT',
+            'text': message
+        })
+        }
+        requests.post(endpoint, data=payload)
+
+
 if __name__ == '__main__':
     mode = os.getenv('sysenv') or 'dev'
 
@@ -95,3 +112,4 @@ if __name__ == '__main__':
     celery_tickets = check_mongo(ticket_numbers)
     list_for_middleware = data_for_celery(celery_tickets)
     pass_to_middleware(list_for_middleware, settings)
+    write_to_slack(settings.get('slack_url'), settings.get('slack_channel'), list_for_middleware)
