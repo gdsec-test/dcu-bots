@@ -1,7 +1,7 @@
 # dcu-bots
-Home for bots\n
-API Bot\n
-Queue Bot
+Home for bots
+API Bot
+Missed Ticket Bot
 
 NOTE: Each script will look for an ```.ini``` file to read its settings from. The settings file should be named ```<script_name>_settings.ini``` and placed in the same directory as its parent script. Be sure to set the permissions on the ```.ini``` files appropriately so that no passwords are readable. Listed below are example ```.ini``` files for each of the scripts. Values surrounded with ```< >``` will need to be substituted with real values before runtime
 
