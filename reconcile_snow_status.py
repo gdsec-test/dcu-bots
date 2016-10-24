@@ -16,7 +16,7 @@ def get_snow_tickets():
         if i['u_closed'] == 'false':
             open_snow_tickets.append((i['u_number'], i['sys_id']))
         else:
-            print("You found a closed ticket: {}".format(i['u_number']))
+            print("WARNING: You found a closed ticket: {}".format(i['u_number']))
     return open_snow_tickets
 
 
@@ -64,7 +64,8 @@ if __name__ == '__main__':
     mode = os.getenv('sysenv') or 'dev'
 
     configp = SafeConfigParser()
-    configp.read('missed_tickets_settings.ini')
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    configp.read('{}/missed_tickets_settings.ini'.format(dir_path))
 
     settings = dict(configp.items(mode))
 
@@ -84,10 +85,8 @@ if __name__ == '__main__':
     # Set proper SNOW request headers headers
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
 
-    snow_url = "https://godaddy.service-now.com/api/now/table/u_dcu_ticket?u_closed=false&sysparm_limit=200000"
-
     # Do the HTTP request to SNOW
-    response = requests.get(snow_url, auth=(settings.get('snow_user'), settings.get('snow_pass')),
+    response = requests.get(settings.get('snow_url'), auth=(settings.get('snow_user'), settings.get('snow_pass')),
                             headers=headers)
 
     # Check for HTTP response codes from SNOW for other than 200

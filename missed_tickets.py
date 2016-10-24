@@ -32,7 +32,7 @@ def data_for_celery(celery_tickets):
     for child in data['result']:
         for ticket in celery_tickets:
             if child['u_number'] == ticket:
-                print ticket
+                #   print ticket
                 dict_for_middleware = {'ticketId': ticket,
                                        'type': child['u_type'],
                                        'source': child['u_source'],
@@ -48,7 +48,7 @@ def data_for_celery(celery_tickets):
 
 def pass_to_middleware(list_for_middleware, settings):
     # Celery setup
-    print ('Number of missing tickets: {}'.format(len(list_for_middleware)))
+    #   print ('Number of missing tickets: {}'.format(len(list_for_middleware)))
 
     # Un-comment the following "return" in order to see the current number of missing tickets without sending them to middleware
     # return
@@ -76,7 +76,8 @@ if __name__ == '__main__':
     mode = os.getenv('sysenv') or 'dev'
 
     configp = SafeConfigParser()
-    configp.read('missed_tickets_settings.ini')
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    configp.read('{}/missed_tickets_settings.ini'.format(dir_path))
 
     settings = dict(configp.items(mode))
 
