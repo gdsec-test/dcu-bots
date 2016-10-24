@@ -60,7 +60,7 @@ def pass_to_middleware(list_for_middleware, settings):
 
 def write_to_slack(endpoint, channel, mdata):
     if len(mdata):
-        message = '<!channel> {} items not sent to middleware'.format(len(mdata)) + '\n'
+        message = '<!here> {} items not sent to middleware'.format(len(mdata)) + '\n'
         for i in mdata:
             message += i.get('ticketId') + '\n'
         payload = {'payload': json.dumps({
