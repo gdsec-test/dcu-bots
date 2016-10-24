@@ -22,29 +22,42 @@ def get_snow_tickets():
 
 def check_mongo(ticket_numbers):
     counter = 0
+    messages = ""
     for ticket in ticket_numbers:
         # getting a single document and set to variable in order to print
         mongo_result = collection.find_one({"_id": ticket[0]})
         if mongo_result is not None:
             if mongo_result['phishstory_status'] == 'CLOSED':
-                close_snow_tickets(ticket, mongo_result['closed'])
+                messages += _close_snow_tickets(ticket, mongo_result['closed'])
                 counter += 1
-    print('\nClosed {} SNOW tickets'.format(counter))
+    return messages
 
 
-def close_snow_tickets(ticket, close_date):
+def _close_snow_tickets(ticket, close_date):
     tix_num, sys_id = ticket
     date_str = str(close_date).split('.')[0]
     url = 'https://godaddy.service-now.com/api/now/table/u_dcu_ticket/{}'.format(sys_id)
-    print('Closing ticket {} with a close date of {}'.format(tix_num, date_str))
+    message = 'Closing ticket {} with a close date of {}'.format(tix_num, date_str)
     my_data = '{"u_closed":"true", "u_closed_date":"%s"}' % (date_str)
     response = requests.put(url,
                             auth=(settings.get('snow_user'), settings.get('snow_pass')),
                             headers=headers,
                             data=my_data)
     if response.status_code != 200:
-        print('Status:', response.status_code, 'Headers:', response.headers, 'Error Response:', response.json())
-        exit()
+        message = 'Status:', response.status_code, 'Headers:', response.headers, 'Error Response:', response.json()
+    return message
+
+
+def write_to_slack(endpoint, channel, mdata):
+    if len(mdata):
+        message = '<!here> Closed {} SNOW tickets:'.format(len(mdata)) + '\n'
+        payload = {'payload': json.dumps({
+            'channel': channel,
+            'username': 'API BOT',
+            'text': message + mdata
+        })
+        }
+        requests.post(endpoint, data=payload)
 
 
 if __name__ == '__main__':
@@ -88,4 +101,6 @@ if __name__ == '__main__':
     # All OPEN SNOW tickets
     ticket_numbers = get_snow_tickets()
 
-    check_mongo(ticket_numbers)
+    messages = check_mongo(ticket_numbers)
+    if len(messages) > 0:
+        write_to_slack(settings.get('slack_url'), settings.get('slack_channel'), messages)
