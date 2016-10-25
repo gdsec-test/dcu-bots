@@ -10,9 +10,10 @@ NOTE: Each script will look for an ```.ini``` file to read its settings from. Th
 #### missed_tickets_settings.ini
 
 ```
-[prod]
+[DEFAULT]
 slack_url = https://hooks.slack.com/services/<secret>/<secret>/<secret>
-slack_channel = <#somechannel>
+
+[prod]
 db_url = mongodb://<127.0.0.1:27017/ >
 db_user = <user>
 db_pass = <pass>
@@ -26,11 +27,10 @@ celery_queue = dcumiddleware
 broker_user = <b_user>
 broker_pass = <b_pass>
 broker_url = infosec-rmq-v01.prod.phx3.secureserver.net:5672/grandma
+slack_channel = <#somechannel>
 
 
 [dev]
-slack_url = https://hooks.slack.com/services/<secret>/<secret>/<secret>
-slack_channel = <#somechannel>
 db_url = mongodb://<127.0.0.1:27017/ >
 db_user = <user>
 db_pass = <pass>
@@ -44,6 +44,7 @@ celery_queue = dcumiddleware
 broker_user = <b_user>
 broker_pass = <b_pass>
 broker_url = infosec-rmq-v01.prod.phx3.secureserver.net:5672/grandma
+slack_channel = <#somechannel>
 ```
 
 Each section above has the same keys defined, and the values should only differ based on the prod/dev environment.
