@@ -3,10 +3,7 @@ import os
 from ConfigParser import SafeConfigParser
 
 import requests
-from celery import Celery
 from pymongo import MongoClient
-
-from celeryconfig import CeleryConfig
 
 
 def get_snow_tickets():
