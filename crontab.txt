@@ -1,1 +1,2 @@
 */10 * * * * /usr/bin/python /home/dcu-bots/apibot.py
+0 */6 * * * export sysenv=prod;/usr/bin/python /home/dcu-bots/missed_tickets.py
