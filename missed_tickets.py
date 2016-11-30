@@ -98,7 +98,7 @@ if __name__ == '__main__':
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
 
     # Do the HTTP request to SNOW
-    response = requests.get(settings.get('snow_url'), auth=(settings.get('snow_user'), settings.get('snow_pass')),
+    response = requests.get(settings.get('snow_url_open_tickets'), auth=(settings.get('snow_user'), settings.get('snow_pass')),
                             headers=headers)
 
     # Check for HTTP response codes from SNOW for other than 200
