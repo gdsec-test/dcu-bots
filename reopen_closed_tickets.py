@@ -7,21 +7,7 @@ from pymongo import MongoClient
 
 def open_ticket_in_mongo(open_snow_ticket):
     tix_num, sys_id = open_snow_ticket
-    # getting a single document and set to variable in order to print
-    # mongo_result = collection.update_one({
-    #     '_id' : tix_num
-    # }, {
-    #     '$unset' : {
-    #         'close_reason' : '',
-    #         'closed' : ''
-    #     }
-    # }, {
-    #     '$set' : {
-    #         'phishstory_status' : 'OPEN'
-    #     }
-    # }, {
-    #     'upsert' : False
-    # })
+    # Setting the phishstory_status field to OPEN and then removing the close_reason and closed fields altogether
     try:
         collection.update_one({'_id': tix_num}, {'$set': {'phishstory_status': 'OPEN'}}, upsert=False)
         collection.update_one({'_id': tix_num}, {'$unset': {'close_reason': 1, 'closed': 1}}, upsert=False)
@@ -80,6 +66,15 @@ def get_all_specified_snow_tickets(specific_snow_ids):
 
 def make_snow_sysid_number_list(specific_snow_ids):
     snow_sysid_number_list = []
+
+    # Structure for snow_records looks like:
+    # [{
+    #     u 'sys_id': u '01eb3e1437c76a00362896d543990e1a',
+    #     u 'u_number': u 'DCU000024037'
+    # }, {
+    #     u 'sys_id': u '034da51e2bc3a24054a41bc5a8da15b1',
+    #     u 'u_number': u 'DCU000024766'
+    # }]
     snow_records = get_all_specified_snow_tickets(specific_snow_ids)['result']
     for snow_id in snow_records:
         snow_tuple = (snow_id['u_number'], snow_id['sys_id'])
@@ -116,12 +111,14 @@ if __name__ == '__main__':
 
     # Read the list of SNOW ticket ids to open
     filename = 'closed_ticket_ids.txt'
+
+    # Structure of closed_snow_ticket_ids looks like:
+    # ['DCU000025036', 'DCU000024953']
     closed_snow_ticket_ids = [line.strip() for line in open(filename)]
 
+    # Structure of specific_closed_tickets looks like:
+    # [(u 'DCU000024037', u '01eb3e1437c76a00362896d543990e1a'),(u 'DCU000024766', u '034da51e2bc3a24054a41bc5a8da15b1')]
     specific_closed_tickets = make_snow_sysid_number_list(closed_snow_ticket_ids)
-
-    # All OPEN SNOW tickets
-    # open_snow_ticket_numbers_sysids = extract_number_sysids_from_closed_snow_tickets_list()
 
     for snow_ticket in specific_closed_tickets:
         if not open_snow_tickets(snow_ticket):
