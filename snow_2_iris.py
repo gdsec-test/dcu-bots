@@ -17,11 +17,14 @@ configp.read('{}/snow_2_iris_settings.ini'.format(dir_path))
 
 settings = dict(configp.items(mode))
 
-# setting up a console handler for logging
-logging.basicConfig(level=logging.INFO)
+# SET UP LOGGING
+logging.basicConfig(filename='snow_2_iris.log', level=logging.INFO,
+                    format="[%(levelname)s:%(asctime)s:%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+                    )
 
 # enabling debugging for suds.client to show sent/received soap messages
-logging.getLogger('suds.client').setLevel(logging.INFO)
+logger = logging.getLogger('suds.client')
+logger.info('Process Starting')
 
 # create a client for RegDBWbSvcService and get wsdl URL
 client = Client(settings.get('wsdl_url'))
@@ -191,7 +194,7 @@ response = requests.get(settings.get('snow_url'), auth=(snow_user, snow_pass), h
 
 # Check for HTTP response codes from SNOW for other than 200
 if response.status_code != 200:
-    logging.error('Status:', response.status_code, 'Headers:', response.headers, 'Error Response:', response.json())
+    logger.error('Status:', response.status_code, 'Headers:', response.headers, 'Error Response:', response.json())
     exit()
 
 
