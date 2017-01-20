@@ -69,7 +69,7 @@ def close_snow_tickets(list_for_closing):
     for child in list_for_closing:
         close_date = datetime.utcnow()
         date_str = str(close_date).split('.')[0]
-        url = 'https://godaddydev.service-now.com/api/now/table/u_dcu_ticket/{}'.format(child['sys_id'])
+        url = settings.get('snow_close_url') + child['sys_id']
         # DO NOT change the syntax of message below, as the function above
         #  verifies that it starts with the string 'Closing'
         message = 'Closing ticket {} with a close date of {}'.format(child['tix_num'], date_str)
