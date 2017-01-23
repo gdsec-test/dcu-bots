@@ -53,7 +53,7 @@ def data_for_iris(snow_response):
                          'sourceDomainOrIp': child['u_source_domain_or_ip'],
                          'target': child['u_target'],
                          'proxy': child['u_proxy_ip'],
-                         'notes': child['u_notes'],
+                         'notes': child['u_info'],
                          'urlMoreInfo': child['u_url_more_info'],
                          'reporter': child['u_reporter']
                          }
