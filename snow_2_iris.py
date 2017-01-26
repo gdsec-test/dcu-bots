@@ -2,12 +2,15 @@ import json
 import logging
 import requests
 import socket
+import sys
 import os
 
 from ConfigParser import SafeConfigParser
 from datetime import datetime
 from suds.client import Client
-from sys import exit
+
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 mode = os.getenv('sysenv') or 'dev'
 
@@ -139,31 +142,36 @@ def create_iris_incident(subscriber_id, subject, note, group_id, service_id):
 def send_to_iris(iris_list):
     messages = []
     for i in iris_list:
-        ticket_info = '\n'.join('{}: {}'.format(key, val) for key, val in i.items())
-        if i['type'] == 'CONTENT':
-            content_subject = 'Content Complaints Report'
+        try:
 
-            if mode == 'prod':
-                # PROD IRIS insert statement with proper Group/Service IDs for PROD Environment for CONTENT type
-                iris_ticket = create_iris_incident('436', content_subject, ticket_info, '432', '241')
+            ticket_info = '\n'.join('{}: {}'.format(key, val) for key, val in i.items())
+            if i['type'] == 'CONTENT':
+                content_subject = 'Content Complaints Report'
 
-            else:
-                # DEV IRIS insert statement with proper Group/Service IDs for DEV Environment for CONTENT type
-                iris_ticket = create_iris_incident('425', content_subject, ticket_info, '504', '227')
+                if mode == 'prod':
+                    # PROD IRIS insert statement with proper Group/Service IDs for PROD Environment for CONTENT type
+                    iris_ticket = create_iris_incident('436', content_subject, ticket_info, '432', '241')
 
-            messages.append(iris_ticket)
-        elif i['type'] == 'CHILD_ABUSE':
-            child_abuse_subject = 'Child Abuse Report'
+                else:
+                    # DEV IRIS insert statement with proper Group/Service IDs for DEV Environment for CONTENT type
+                    iris_ticket = create_iris_incident('425', content_subject, ticket_info, '504', '227')
 
-            if mode == 'prod':
-                # PROD IRIS insert statement with proper Group/Service IDs for PROD Environment for CHILD_ABUSE type
-                iris_ticket = create_iris_incident('389', child_abuse_subject, ticket_info, '443', '221')
+                messages.append(iris_ticket)
+            elif i['type'] == 'CHILD_ABUSE':
+                child_abuse_subject = 'Child Abuse Report'
 
-            else:
-                # DEV IRIS insert statement with proper Group/Service IDs for DEV Environment for CHILD_ABUSE type
-                iris_ticket = create_iris_incident('425', child_abuse_subject, ticket_info, '510', '214')
+                if mode == 'prod':
+                    # PROD IRIS insert statement with proper Group/Service IDs for PROD Environment for CHILD_ABUSE type
+                    iris_ticket = create_iris_incident('389', child_abuse_subject, ticket_info, '443', '221')
 
-            messages.append(iris_ticket)
+                else:
+                    # DEV IRIS insert statement with proper Group/Service IDs for DEV Environment for CHILD_ABUSE type
+                    iris_ticket = create_iris_incident('425', child_abuse_subject, ticket_info, '510', '214')
+
+                messages.append(iris_ticket)
+
+        except Exception as e:
+            logger.error(e.message)
 
     return messages
 
@@ -195,7 +203,7 @@ response = requests.get(settings.get('snow_url'), auth=(snow_user, snow_pass), h
 # Check for HTTP response codes from SNOW for other than 200
 if response.status_code != 200:
     logger.error('Status:', response.status_code, 'Headers:', response.headers, 'Error Response:', response.json())
-    exit()
+    sys.exit()
 
 
 # Decode the SNOW JSON response into a dictionary and use the data
