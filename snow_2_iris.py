@@ -162,7 +162,7 @@ def send_to_iris(iris_list):
 
                 if mode == 'prod':
                     # PROD IRIS insert statement with proper Group/Service IDs for PROD Environment for CHILD_ABUSE type
-                    iris_ticket = create_iris_incident('389', child_abuse_subject, ticket_info, '443', '221')
+                    iris_ticket = create_iris_incident('389', child_abuse_subject, ticket_info, '409', '221')
 
                 else:
                     # DEV IRIS insert statement with proper Group/Service IDs for DEV Environment for CHILD_ABUSE type
