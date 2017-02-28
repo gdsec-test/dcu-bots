@@ -1,3 +1,4 @@
 */10 * * * * /usr/bin/python /home/dcu-bots/apibot.py
 0 */6 * * * export sysenv=prod;/usr/bin/python /home/dcu-bots/missed_tickets.py
+0 6 * * * export sysenv=prod;/usr/bin/python /home/dcu-bots/reconcile_snow_status.py
 0,30 * * * * export sysenv=prod;/usr/bin/python /home/dcu-bots/snow_2_iris.py
