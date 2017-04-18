@@ -11,7 +11,7 @@ def extract_number_sysids_from_open_snow_tickets_list():
     # iterate through SNOW json response to obtain ticket numbers. (make function that takes data and pass result)
     for i in open_snow_ticket_records['result']:
         if i['u_closed'] == 'false':
-            open_snow_ticket_numbers_sysids_func_level.append((i['u_number'], i['sys_id']))
+            open_snow_ticket_numbers_sysids_func_level.append((i['u_number'], i['sys_id'], i['u_reporter'], i['u_source']))
         else:
             print("WARNING: You found a closed ticket: {}".format(i['u_number']))
     return open_snow_ticket_numbers_sysids_func_level
@@ -22,18 +22,18 @@ def check_mongo_for_closed_tickets_that_are_open_in_snow(open_snow_ticket_number
     messages = []
     for ticket in open_snow_ticket_numbers:
         # getting a single document and set to variable in order to print
-        mongo_result = collection.find_one({"_id": ticket[0]})
+        mongo_result = collection.find_one({"_id": ticket[0], "reporter": ticket[2], "source": ticket[3]})
         if mongo_result is not None:
             if mongo_result['phishstory_status'] == 'CLOSED':
                 message = close_snow_tickets(ticket, mongo_result['closed'])
-                if message.startswith('Closing'):
+                if isinstance(message, str) and message.startswith('Closing'):
                     counter += 1
-                messages.append(message)
+                    messages.append(message)
     return messages, counter
 
 
 def close_snow_tickets(ticket, close_date):
-    tix_num, sys_id = ticket
+    tix_num, sys_id, reporter, source = ticket
     date_str = str(close_date).split('.')[0]
     url = 'https://godaddy.service-now.com/api/now/table/u_dcu_ticket/{}'.format(sys_id)
     # DO NOT change the syntax of message below, as the function above
@@ -137,8 +137,8 @@ if __name__ == '__main__':
     # All OPEN SNOW tickets
     # Structure of open_snow_ticket_numbers_sysids looks like:
     # [
-    #     (u 'DCU000025632', u '00418cec371b6e80362896d543990ef8'),
-    #     (u 'DCU000026599', u '00c158932b17a2407aa46ab3e4da15b3')
+    #     (u 'DCU000025632', u '00418cec371b6e80362896d543990ef8', u '129092584', u 'http://globalspectrumltd.com/media/altweb/'),
+    #     (u 'DCU000026599', u '00c158932b17a2407aa46ab3e4da15b3', u '129092585', u 'http://globalspectrumltd.com/media/altweb/1')
     # ]
     open_snow_ticket_numbers_sysids = extract_number_sysids_from_open_snow_tickets_list()
 
