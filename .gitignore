@@ -12,6 +12,8 @@ __pycache__/
 # pycharm files
 .idea/*
 
+.vscode
+
 # Uptown Flask dev configs
 **/conf/dev/
 
