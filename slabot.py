@@ -5,12 +5,15 @@ import requests
 import pymongo
 import os
 
-logging.basicConfig(
-    filename='slabot.log',
-    level=logging.INFO,
-    format="[%(levelname)s:%(asctime)s:%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+log_handler = logging.handlers.RotatingFileHandler(filename='slabot.log', backupCount=5, maxBytes=5 * 1024 * 1024)
+formatter = logging.Formatter(
+    "[%(levelname)s:%(asctime)s:%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
 )
+log_handler.setFormatter(formatter)
 logger = logging.getLogger(__name__)
+logger.addHandler(log_handler)
+logger.setLevel(logging.INFO)
+
 
 configp = SafeConfigParser()
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -86,4 +89,3 @@ if __name__ == '__main__':
     payload.set_text("{} hours".format(hrs))
     payload.print_to_slack()
     logger.info("Finished API SLA calculation")
-
