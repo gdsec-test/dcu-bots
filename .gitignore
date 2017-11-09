@@ -2,6 +2,7 @@
 closed_ticket_ids.txt
 classes/
 #Byte-compiled / optimized / DLL files
+crontab.txt
 
 __pycache__/
 *.py[cod]
