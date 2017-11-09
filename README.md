@@ -26,7 +26,7 @@ celery_task = run.process
 celery_queue = dcumiddleware
 broker_user = <b_user>
 broker_pass = <b_pass>
-broker_url = infosec-rmq-v01.prod.phx3.secureserver.net:5672/grandma
+broker_url = rmq-dcu.int.godaddy.com:5672/grandma
 slack_channel = <#somechannel>
 
 
@@ -43,7 +43,7 @@ celery_task = run.process
 celery_queue = dcumiddleware
 broker_user = <b_user>
 broker_pass = <b_pass>
-broker_url = infosec-rmq-v01.prod.phx3.secureserver.net:5672/grandma
+broker_url = rmq-dcu.int.godaddy.com:5672/grandma
 slack_channel = <#somechannel>
 ```
 
