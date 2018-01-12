@@ -101,7 +101,7 @@ if __name__ == '__main__':
         username=os.getenv('BROKER_USER') or 'user',
         password=os.getenv('BROKER_PASS') or 'password')
     rabbit.connect()
-    for item in mongo.handle().find({'last_modified': {'$gte': datetime.utcnow() - timedelta(hours=1)}}):
+    for item in mongo.handle().find({'$or':[{'last_modified': {'$gte': datetime.utcnow() - timedelta(hours=1)}}, {'closed':{'$gte': datetime.utcnow() - timedelta(hours=1)}}]}):
         data = item
         data.pop('_id')
         data.pop('source', None)
