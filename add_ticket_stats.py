@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 
 
 def time_format(dt):
+    if type(dt) is str or type(dt) is unicode:
+        return dt[:-3]
     return "%s:%.3f%s" % (dt.strftime('%Y-%m-%dT%H:%M'),
                           float("%.3f" % (dt.second + dt.microsecond / 1e6)),
                           dt.strftime('%z'))
@@ -139,4 +141,3 @@ if __name__ == '__main__':
                     data[time] = time_format(opent) + 'Z'
         rabbit.publish(data)
     logger.info("Finished ticket stats retrieval")
-
