@@ -9,3 +9,8 @@ redis
 # snow to IRIS requirements
 suds
 suds-jurko
+
+# journal
+datetime
+pika
+Pyyaml
