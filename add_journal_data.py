@@ -90,7 +90,7 @@ if __name__ == '__main__':
         username=os.getenv('BROKER_USER', 'user'),
         password=os.getenv('BROKER_PASS', 'password'))
     rabbit.connect()
-    for item in mongo.handle().find({'createdAt': {'$gte': datetime.utcnow() - timedelta(hours=1)}}):
+    for item in mongo.handle().find({'createdAt': {'$gte': datetime.utcnow() - timedelta(minutes=15)}}):
         data = item
         data.pop('_id')
         data.pop('notes', None)
