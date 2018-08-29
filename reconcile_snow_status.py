@@ -9,11 +9,12 @@ from pymongo import MongoClient
 def extract_number_sysids_from_open_snow_tickets_list():
     open_snow_ticket_numbers_sysids_func_level = []
     # iterate through SNOW json response to obtain ticket numbers. (make function that takes data and pass result)
-    for i in open_snow_ticket_records['result']:
-        if i['u_closed'] == 'false':
-            open_snow_ticket_numbers_sysids_func_level.append((i['u_number'], i['sys_id'], i['u_reporter'], i['u_source']))
+    for i in open_snow_ticket_records.get('result', []):
+        if i.get('u_closed') == 'false':
+            open_snow_ticket_numbers_sysids_func_level.append((i.get('u_number'), i.get('sys_id'), i.get('u_reporter'),
+                                                               i.get('u_source')))
         else:
-            print("WARNING: You found a closed ticket: {}".format(i['u_number']))
+            print("WARNING: You found a closed ticket: {}".format(i.get('u_number', 'UNKNOWN')))
     return open_snow_ticket_numbers_sysids_func_level
 
 
@@ -24,8 +25,8 @@ def check_mongo_for_closed_tickets_that_are_open_in_snow(open_snow_ticket_number
         # getting a single document and set to variable in order to print
         mongo_result = collection.find_one({"_id": ticket[0], "reporter": ticket[2], "source": ticket[3]})
         if mongo_result is not None:
-            if mongo_result['phishstory_status'] == 'CLOSED':
-                message = close_snow_tickets(ticket, mongo_result['closed'])
+            if mongo_result.get('phishstory_status') == 'CLOSED':
+                message = close_snow_tickets(ticket, mongo_result.get('closed'))
                 if isinstance(message, str) and message.startswith('Closing'):
                     counter += 1
                     messages.append(message)
@@ -64,7 +65,7 @@ def write_to_slack(endpoint, channel, message_list, counter):
 
 
 if __name__ == '__main__':
-    mode = os.getenv('sysenv') or 'dev'
+    mode = os.getenv('sysenv', 'dev')
 
     configp = SafeConfigParser()
     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -104,41 +105,43 @@ if __name__ == '__main__':
     # Decode the SNOW JSON response into a dictionary and use the data
     # Structure of open_snow_ticket_records looks like:
     # {
-    #     u 'result': [{
-    #         u 'u_target': u 'Salesforce',
-    #         u 'u_reporter': u '129092584',
-    #         u 'sys_mod_count': u '0',
-    #         u 'u_info': u '',
-    #         u 'u_notes': u '',
-    #         u 'sys_updated_by': u 'dcuapi',
-    #         u 'sys_created_by': u 'dcuapi',
-    #         u 'sys_id': u '00418cec371b6e80362896d543990ef8',
-    #         u 'u_ticket_duration': u '',
-    #         u 'u_source_domain_or_ip': u 'globalspectrumltd.com',
-    #         u 'sys_tags': u '',
-    #         u 'u_number': u 'DCU000025632',
-    #         u 'u_url_more_info': u '',
-    #         u 'sys_updated_on': u '2016-11-21 12:38:02',
-    #         u 'u_proxy_ip': u '',
-    #         u 'u_intentional': u 'false',
-    #         u 'u_closed_date': u '',
-    #         u 'u_group': {
-    #             u 'link': u 'https://godaddy.service-now.com/api/now/table/sys_user_group/4b80f9c10f1b8e009d232ca8b1050e20',
-    #             u 'value': u '4b80f9c10f1b8e009d232ca8b1050e20'
-    #         },
-    #         u 'sys_created_on': u '2016-11-21 12:38:02',
-    #         u 'u_closed': u 'false',
-    #         u 'u_type': u 'PHISHING',
-    #         u 'u_source': u 'http://globalspectrumltd.com/media/altweb/'
-    #     }]
+    #    'result': [{
+    #       'u_target': 'Salesforce',
+    #       'u_reporter': '129092584',
+    #       'sys_mod_count': '0',
+    #       'u_info': '',
+    #       'u_notes': '',
+    #       'sys_updated_by': 'dcuapi',
+    #       'sys_created_by': 'dcuapi',
+    #       'sys_id': '00418cec371b6e80362896d543990ef8',
+    #       'u_ticket_duration': '',
+    #       'u_source_domain_or_ip': 'globalspectrumltd.com',
+    #       'sys_tags': '',
+    #       'u_number': 'DCU000025632',
+    #       'u_url_more_info': '',
+    #       'sys_updated_on': '2016-11-21 12:38:02',
+    #       'u_proxy_ip': '',
+    #       'u_intentional': 'false',
+    #       'u_closed_date': '',
+    #       'u_group': {
+    #           'link': 'https://godaddy.service-now.com/api/now/table/sys_user_group/4b80f9c10f1b8e009d232ca8b1050e20',
+    #           'value': '4b80f9c10f1b8e009d232ca8b1050e20'
+    #       },
+    #       'sys_created_on': '2016-11-21 12:38:02',
+    #       'u_closed': 'false',
+    #       'u_type': 'PHISHING',
+    #       'u_source': 'http://globalspectrumltd.com/media/altweb/'
+    #    }]
     # }
     open_snow_ticket_records = response.json()
 
     # All OPEN SNOW tickets
     # Structure of open_snow_ticket_numbers_sysids looks like:
     # [
-    #     (u 'DCU000025632', u '00418cec371b6e80362896d543990ef8', u '129092584', u 'http://globalspectrumltd.com/media/altweb/'),
-    #     (u 'DCU000026599', u '00c158932b17a2407aa46ab3e4da15b3', u '129092585', u 'http://globalspectrumltd.com/media/altweb/1')
+    #     ('DCU000025632', '00418cec371b6e80362896d543990ef8', 
+    #      '129092584', 'http://globalspectrumltd.com/media/altweb/'),
+    #     ('DCU000026599', '00c158932b17a2407aa46ab3e4da15b3', '129092585', 
+    #      'http://globalspectrumltd.com/media/altweb/1')
     # ]
     open_snow_ticket_numbers_sysids = extract_number_sysids_from_open_snow_tickets_list()
 
