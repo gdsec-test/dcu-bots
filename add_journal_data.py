@@ -46,6 +46,8 @@ class Publisher:
                 exchange=self.EXCHANGE, exchange_type=self.TYPE, durable=True)
 
     def _publish(self, msg):
+        msg['_id'] = str(msg['_id'])
+        msg['createdAt'] = str(msg['createdAt'])
         self._channel.basic_publish(
             exchange=self.EXCHANGE,
             routing_key=self.ROUTING_KEY,
@@ -92,9 +94,7 @@ if __name__ == '__main__':
     rabbit.connect()
     for item in mongo.handle().find({'createdAt': {'$gte': datetime.utcnow() - timedelta(minutes=15)}}):
         data = item
-        data.pop('_id')
         data.pop('notes', None)
-        data.pop('createdAt', None)
         data.pop('assets', None)
         rabbit.publish(data)
     logger.info("Finished journal records retrieval")
