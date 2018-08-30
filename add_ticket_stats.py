@@ -11,9 +11,9 @@ from datetime import datetime, timedelta
 def time_format(dt):
     if type(dt) is str or type(dt) is unicode:
         return dt[:-3]
-    return "%s:%.3f%s" % (dt.strftime('%Y-%m-%dT%H:%M'),
-                          float("%.3f" % (dt.second + dt.microsecond / 1e6)),
-                          dt.strftime('%z'))
+    return "%s:%.3f%sZ" % (dt.strftime('%Y-%m-%dT%H:%M'),
+                           float("%.3f" % (dt.second + dt.microsecond / 1e6)),
+                           dt.strftime('%z'))
 
 
 class MongoHelperAPI:
@@ -103,41 +103,42 @@ if __name__ == '__main__':
         username=os.getenv('BROKER_USER') or 'user',
         password=os.getenv('BROKER_PASS') or 'password')
     rabbit.connect()
-    for item in mongo.handle().find({'$or':[{'last_modified': {'$gte': datetime.utcnow() - timedelta(hours=1)}}, {'closed':{'$gte': datetime.utcnow() - timedelta(hours=1)}}]}):
+    for item in mongo.handle().find({'$or': [{'last_modified': {'$gte': datetime.utcnow() - timedelta(hours=1)}},
+                                             {'closed': {'$gte': datetime.utcnow() - timedelta(hours=1)}}]}):
         data = item
         data.pop('_id')
         data.pop('source', None)
-	data.pop('similar_tickets', None)
+        data.pop('similar_tickets', None)
         data.pop('screenshot_id', None)
-	data.pop('s_id', None)
-	data.pop('s_create_date', None)
+        data.pop('s_id', None)
+        data.pop('s_create_date', None)
         data.pop('sourcecode_id', None)
         data.pop('last_screen_grab', None)
-	data.pop('fraud_hold_until', None)
-	data.pop('vip_unconfirmed', None)
-	data.pop('sourceSubDomain', None)
-	data.pop('hold_until', None)
-	data.pop('last_modified', None)
+        data.pop('fraud_hold_until', None)
+        data.pop('vip_unconfirmed', None)
+        data.pop('sourceSubDomain', None)
+        data.pop('hold_until', None)
+        data.pop('last_modified', None)
         extra = data.pop('data', None)
-	if extra:
-		host_data = extra.get('domainQuery',{}).get('host')
-		if host_data:
-			brand = host_data.get('brand')
-			product = host_data.get('product')
-			if brand:
-				data['brand'] = brand
-			if product:
-				data['product'] = product	
+        if extra:
+            host_data = extra.get('domainQuery', {}).get('host')
+            if host_data:
+                brand = host_data.get('brand')
+                product = host_data.get('product')
+                if brand:
+                    data['brand'] = brand
+                if product:
+                    data['product'] = product
         meta = data.pop('metadata', None)
         if meta:
             merge_dicts(data, meta)
         for time in ['created', 'closed', 'iris_created']:
             tdata = data.get(time)
             if tdata:
-                data[time] = time_format(tdata) + 'Z'
+                data[time] = time_format(tdata)
             else:
                 if time == 'created':
                     opent = data.get('closed')
-                    data[time] = time_format(opent) + 'Z'
+                    data[time] = time_format(opent)
         rabbit.publish(data)
     logger.info("Finished ticket stats retrieval")
