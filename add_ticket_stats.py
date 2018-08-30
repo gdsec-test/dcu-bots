@@ -9,6 +9,11 @@ from datetime import datetime, timedelta
 
 
 def time_format(dt):
+    """
+    Function takes in a datetime object and converts it into a YYYY-mm-ddTHH:MM:SS.fffZ formatted string
+    :param dt: datetime object
+    :return: string
+    """
     if type(dt) is str or type(dt) is unicode:
         return dt[:-3]
     return "%s:%.3f%sZ" % (dt.strftime('%Y-%m-%dT%H:%M'),
@@ -103,9 +108,8 @@ if __name__ == '__main__':
         username=os.getenv('BROKER_USER') or 'user',
         password=os.getenv('BROKER_PASS') or 'password')
     rabbit.connect()
-    for item in mongo.handle().find({'$or': [{'last_modified': {'$gte': datetime.utcnow() - timedelta(hours=1)}},
+    for data in mongo.handle().find({'$or': [{'last_modified': {'$gte': datetime.utcnow() - timedelta(hours=1)}},
                                              {'closed': {'$gte': datetime.utcnow() - timedelta(hours=1)}}]}):
-        data = item
         data.pop('_id')
         data.pop('source', None)
         data.pop('similar_tickets', None)
