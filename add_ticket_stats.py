@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 def time_format(dt):
     """
-    Function takes in a datetime object and converts it into a YYYY-mm-ddTHH:MM:SS.fffZ formatted string
+    Function takes in a datetime object and returns a YYYY-mm-ddTHH:MM:SS.fffZ formatted string
     :param dt: datetime object
     :return: string
     """
