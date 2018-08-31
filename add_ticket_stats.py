@@ -14,6 +14,9 @@ def time_format(dt):
     :param dt: datetime object
     :return: string
     """
+    if type(dt) not in [datetime]:
+        logger.error('Received unexpected type: {}'.format(type(dt)))
+        return dt
     return "%s:%.3f%sZ" % (dt.strftime('%Y-%m-%dT%H:%M'),
                            float("%.3f" % (dt.second + dt.microsecond / 1e6)),
                            dt.strftime('%z'))
