@@ -8,6 +8,20 @@ from logging.config import dictConfig
 from datetime import datetime, timedelta
 
 
+def time_format(dt):
+    """
+    If function takes in a datetime object a YYYY-mm-ddTHH:MM:SS.fffZ formatted string is returned
+    If function takes in a string or unicode a YYYY-mm-ddTHH:MM:SS.fff formatted string is returned
+    :param dt: datetime object or string or unicode
+    :return: string
+    """
+    if type(dt) is str or type(dt) is unicode:
+        return dt[:-3]
+    return "%s:%.3f%sZ" % (dt.strftime('%Y-%m-%dT%H:%M'),
+                          float("%.3f" % (dt.second + dt.microsecond / 1e6)),
+                          dt.strftime('%z'))
+
+
 class MongoHelperAPI:
     def __init__(self):
         self._logger = logging.getLogger(__name__)
@@ -47,7 +61,6 @@ class Publisher:
 
     def _publish(self, msg):
         msg['_id'] = str(msg['_id'])
-        msg['createdAt'] = str(msg['createdAt'])
         self._channel.basic_publish(
             exchange=self.EXCHANGE,
             routing_key=self.ROUTING_KEY,
@@ -96,5 +109,8 @@ if __name__ == '__main__':
         data = item
         data.pop('notes', None)
         data.pop('assets', None)
+        tdata = data.get('createdAt')
+        if tdata:
+            data['createdAt'] = time_format(tdata)
         rabbit.publish(data)
     logger.info("Finished journal records retrieval")
