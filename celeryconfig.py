@@ -6,7 +6,7 @@ from kombu import Exchange, Queue
 class CeleryConfig:
     BROKER_TRANSPORT = 'pyamqp'
     BROKER_USE_SSL = True
-    CELERY_TASK_SERIALIZER = 'json'
+    CELERY_TASK_SERIALIZER = 'pickle'
     CELERY_RESULT_SERIALIZER = 'json'
     CELERY_ACCEPT_CONTENT = ['json']
     CELERY_IMPORTS = 'run'
