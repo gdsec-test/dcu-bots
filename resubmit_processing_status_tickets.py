@@ -33,7 +33,7 @@ class ReturntoMiddleware:
         Retrieves tickets in MongoDB that have been stuck in processing for more than one day since their creation and
         reinserts the task into Middleware queue for processing.
         """
-        for ticket in self._mongo.handle().find({'phishstory_status': 'PROCESSING', 'created': {'$gte': datetime.utcnow() - timedelta(hours=24)}}):
+        for ticket in self._mongo.handle().find({'phishstory_status': 'PROCESSING', 'created': {'$lte': datetime.utcnow() - timedelta(hours=24)}}):
             self._send_to_middleware(ticket)
 
     def _send_to_middleware(self, payload):
@@ -49,7 +49,7 @@ class ReturntoMiddleware:
             self._logger.error("Unable to send payload to Middleware {} {}.".format(payload.get('ticketId'), e.message))
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(filename='submit_processing_tickets.log', level=logging.INFO)
 
     mode = os.getenv('prod')
 
