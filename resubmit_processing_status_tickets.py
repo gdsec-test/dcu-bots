@@ -1,8 +1,10 @@
 import logging
 import os
+import yaml
 from celery import Celery
 from celeryconfig import CeleryConfig
 from ConfigParser import SafeConfigParser
+from logging.config import dictConfig
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 
@@ -49,9 +51,20 @@ class ReturntoMiddleware:
             self._logger.error("Unable to send payload to Middleware {} {}.".format(payload.get('ticketId'), e.message))
 
 if __name__ == '__main__':
-    logging.basicConfig(filename='submit_processing_tickets.log', level=logging.INFO)
+    path = ''
+    value = os.getenv('LOG_CFG', None)
+    if value:
+        path = value
+    if os.path.exists(path):
+        with open(path, 'rt') as f:
+            lconfig = yaml.safe_load(f.read())
+        dictConfig(lconfig)
+    else:
+        logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.info("Retrieving tickets in PROCESSING status")
 
-    mode = os.getenv('prod')
+    mode = os.getenv('sysenv', 'dev')
 
     configp = SafeConfigParser()
     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -61,3 +74,4 @@ if __name__ == '__main__':
 
     middle = ReturntoMiddleware(settings)
     middle.find_tickets_in_processing()
+    logger.info("Completed")
