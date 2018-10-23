@@ -116,45 +116,64 @@ if __name__ == '__main__':
     for data in mongo.handle().find({'$or': [{'lastModified': {'$gte': datetime.utcnow() - timedelta(hours=1)}},
                                              {'closedAt': {'$gte': datetime.utcnow() - timedelta(hours=1)}}]}):
         data.pop('_id', None)
-        data.pop('source', None)
         data.pop('ticketID', None)
         data.pop('ticketCategory', None)
-        data.pop('type', None)
+        data.pop('source', None)
+        data.pop('sourceDomainOrIP', None)
+        data.pop('info', None)
         data.pop('target', None)
-        data.pop('archiveCompleted', None)
         data.pop('reporterEmail', None)
         data.pop('lastModified', None)
+        data.pop('archiveCompleted', None)
+        data.pop('fileInfo', None)
+        data.pop('reportFileID', None)
+        data.pop('ncmecReportID', None)
 
-    #     data.pop('hold_until', None)
-    #     data.pop('last_modified', None)
+        domain_brand_data = data.pop('domain', None)
+        if domain_brand_data:
+            domain_brand = domain_brand_data.get('brand', None)
+            domain_registrar = domain_brand_data.get('registrarName', None)
+            domain_create_date = domain_brand_data.get('domainCreateDate', None)
+            
+            if domain_brand:
+                data['domain_brand'] = domain_brand
+            if domain_registrar:
+                data['domain_registrar'] = domain_registrar
+            if domain_create_date:
+                data['domain_create_date'] = domain_create_date
+
+        hosting_brand_data = data.pop('hosting', None)
+        if hosting_brand_data:
+            hosting_brand = hosting_brand_data.get('brand', None)
+            hosting_company_name = hosting_brand_data.get('hostingCompanyName', None)
+            hosting_ip = hosting_brand_data.get('IP', None)
+
+            if hosting_brand:
+                data['hosting_brand'] = hosting_brand
+            if hosting_company_name:
+                data['hosting_company_name'] = hosting_company_name
+            if hosting_ip:
+                data['hosting_ip'] = hosting_ip
 
         cmap_data = data.pop('data', None)
         if cmap_data:
             host_data = cmap_data.get('domainQuery', {}).get('host')
+
             if host_data:
-                host_brand = host_data.get('brand')
                 host_product = host_data.get('product')
                 host_data_center = host_data.get('dataCenter')
-                host_ip = host_data.get('ip')
                 hostname = host_data.get('hostname')
-                hosting_company_name = host_data.get('hostingCompanyName')
                 host_create_date = host_data.get('createDate')
                 mwp_id = host_data.get('mwpId')
                 host_guid = host_data.get('guid')
                 host_os = host_data.get('os')
 
-                if host_brand:
-                    data['host_brand'] = host_brand
                 if host_product:
                     data['host_product'] = host_product
                 if host_data_center:
                     data['host_data_center'] = host_data_center
-                if host_ip:
-                    data['host_ip'] = host_ip
                 if hostname:
                     data['hostname'] = hostname
-                if hosting_company_name:
-                    data['hosting_company_name'] = hosting_company_name
                 if host_create_date:
                     data['host_create_date'] = host_create_date
                 if mwp_id:
@@ -165,9 +184,17 @@ if __name__ == '__main__':
                     data['host_os'] = host_os
 
             shopper_data = cmap_data.get('domainQuery', {}).get('shopperInfo')
+            if shopper_data:
+                shopper_city = shopper_data.get('shopperCity')
+                shopper_state = shopper_data.get('shopperState')
+                shopper_country = shopper_data.get('shopperCountry')
 
-            registrar_data = cmap_data.get('domainQuery', {}).get('registrar')
-
+                if shopper_city:
+                    data['shopper_city'] = shopper_city
+                if shopper_state:
+                    data['shopper_state'] = shopper_state
+                if shopper_country:
+                    data['shopper_country'] = shopper_country
 
         print data
     #     meta = data.pop('metadata', None)
