@@ -13,9 +13,8 @@ class MongoHelperAPI:
         self._logger = logging.getLogger(__name__)
         _dbuser = os.getenv('DB_USER') or 'user'
         _dbpass = os.getenv('DB_PASS') or 'password'
-        #  ToDo: Update connection and DB information to reflect PROD
-        self._conn = pymongo.MongoClient('mongodb://{}:{}@10.47.4.165/dev'.format(_dbuser, _dbpass))
-        self._db = self._conn['dev']
+        self._conn = pymongo.MongoClient('mongodb://{}:{}@10.22.9.209/dcu_kelvin'.format(_dbuser, _dbpass))
+        self._db = self._conn['dcu_kelvin']
         self._collection = self._db['incidents']
 
     def handle(self):
