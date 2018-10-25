@@ -106,6 +106,10 @@ if __name__ == '__main__':
         data.pop('fileInfo', None)
         data.pop('reportFileID', None)
         data.pop('ncmecReportID', None)
+        data.pop('userGenHoldReason', None)
+        data.pop('userGenHoldUntil', None)
+        data.pop('messageID', None)
+        data.pop('notified', None)
 
         domain_brand_data = data.pop('domain', None)
         if domain_brand_data:
