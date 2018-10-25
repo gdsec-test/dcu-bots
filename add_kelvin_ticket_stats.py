@@ -11,8 +11,8 @@ from datetime import datetime, timedelta
 class MongoHelperAPI:
     def __init__(self):
         self._logger = logging.getLogger(__name__)
-        _dbuser = os.getenv('DB_USER') or 'user'
-        _dbpass = os.getenv('DB_PASS') or 'password'
+        _dbuser = os.getenv('DB_USER', 'user')
+        _dbpass = os.getenv('DB_PASS', 'password')
         self._conn = pymongo.MongoClient('mongodb://{}:{}@10.22.9.209/dcu_kelvin'.format(_dbuser, _dbpass))
         self._db = self._conn['dcu_kelvin']
         self._collection = self._db['incidents']
@@ -91,7 +91,6 @@ if __name__ == '__main__':
         password=os.getenv('BROKER_PASS') or 'password')
     rabbit.connect()
 
-    #  ToDo: Do we adjust lastModified timedelta temporarily in order to be able to retrieve all the historical data?
     for data in mongo.handle().find({'$or': [{'lastModified': {'$gte': datetime.utcnow() - timedelta(hours=1)}},
                                              {'closedAt': {'$gte': datetime.utcnow() - timedelta(hours=1)}}]}):
         data.pop('_id', None)
