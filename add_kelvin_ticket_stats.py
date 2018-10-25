@@ -87,8 +87,8 @@ if __name__ == '__main__':
         host='rmq-dcu.int.godaddy.com',
         port=5672,
         virtual_host='grandma',
-        username=os.getenv('BROKER_USER') or 'user',
-        password=os.getenv('BROKER_PASS') or 'password')
+        username=os.getenv('BROKER_USER', 'user'),
+        password=os.getenv('BROKER_PASS', 'password'))
     rabbit.connect()
 
     for data in mongo.handle().find({'$or': [{'lastModified': {'$gte': datetime.utcnow() - timedelta(hours=1)}},
