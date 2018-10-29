@@ -8,6 +8,20 @@ from logging.config import dictConfig
 from datetime import datetime, timedelta
 
 
+def time_format(dt):
+    """
+    Function takes in a datetime object and returns a YYYY-mm-ddTHH:MM:SS.fffZ formatted string
+    :param dt: datetime object
+    :return: string
+    """
+    if type(dt) not in [datetime]:
+        logger.error('Received unexpected type: {}'.format(type(dt)))
+        return dt
+    return "%s:%.3f%sZ" % (dt.strftime('%Y-%m-%dT%H:%M'),
+                           float("%.3f" % (dt.second + dt.microsecond / 1e6)),
+                           dt.strftime('%z'))
+
+
 class MongoHelperAPI:
     def __init__(self):
         self._logger = logging.getLogger(__name__)
@@ -81,7 +95,7 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    logger.info("Starting Kelvin ticket stats retrieval")
+    logger.info("Starting Kelvin stats retrieval")
     mongo = MongoHelperAPI()
     rabbit = Publisher(
         host='rmq-dcu.int.godaddy.com',
@@ -178,5 +192,9 @@ if __name__ == '__main__':
                 if shopper_country:
                     data['shopper_country'] = shopper_country
 
+        for time in ['createdAt', 'closedAt']:
+            tdata = data.get(time)
+            if tdata:
+                data[time] = time_format(tdata)
         rabbit.publish(data)
-    logger.info("Finished Kelvin ticket stats retrieval")
+    logger.info("Finished Kelvin stats retrieval")
