@@ -145,7 +145,7 @@ if __name__ == '__main__':
                 host_product = host_data.get('product')
                 host_data_center = host_data.get('dataCenter')
                 hostname = host_data.get('hostname')
-                host_create_date = host_data.get('createDate')
+                host_create_date = host_data.get('createdDate')
                 mwp_id = host_data.get('mwpId')
                 host_guid = host_data.get('guid')
                 host_os = host_data.get('os')
