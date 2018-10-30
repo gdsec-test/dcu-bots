@@ -36,9 +36,9 @@ class MongoHelperAPI:
 
 
 class Publisher:
-    EXCHANGE = 'kelvin-ticket-stats'
+    EXCHANGE = 'kelvin-stats'
     TYPE = 'direct'
-    ROUTING_KEY = 'kelvin-ticket-stats'
+    ROUTING_KEY = 'kelvin-stats'
 
     def __init__(self, host, port, virtual_host, username, password):
         self._params = pika.connection.ConnectionParameters(
@@ -108,7 +108,6 @@ if __name__ == '__main__':
     for data in mongo.handle().find({'$or': [{'lastModified': {'$gte': datetime.utcnow() - timedelta(hours=1)}},
                                              {'closedAt': {'$gte': datetime.utcnow() - timedelta(hours=1)}}]}):
         data.pop('_id', None)
-        data.pop('ticketID', None)
         data.pop('ticketCategory', None)
         data.pop('source', None)
         data.pop('sourceDomainOrIP', None)
