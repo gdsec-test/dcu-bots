@@ -135,6 +135,8 @@ if __name__ == '__main__':
             if domain_registrar:
                 data['domain_registrar'] = domain_registrar
             if domain_create_date:
+                if 'T' not in domain_create_date:
+                    domain_create_date += 'T00:00:00Z'
                 data['domain_create_date'] = domain_create_date
 
         hosting_brand_data = data.pop('hosting', None)
@@ -158,7 +160,6 @@ if __name__ == '__main__':
                 host_product = host_data.get('product')
                 host_data_center = host_data.get('dataCenter')
                 hostname = host_data.get('hostname')
-                host_create_date = host_data.get('createdDate')
                 mwp_id = host_data.get('mwpId')
                 host_guid = host_data.get('guid')
                 host_os = host_data.get('os')
@@ -169,8 +170,6 @@ if __name__ == '__main__':
                     data['host_data_center'] = host_data_center
                 if hostname:
                     data['hostname'] = hostname
-                if host_create_date:
-                    data['host_create_date'] = host_create_date
                 if mwp_id:
                     data['mwp_id'] = mwp_id
                 if host_guid:
