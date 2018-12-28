@@ -200,7 +200,7 @@ if __name__ == '__main__':
 
         if meta:
             meta.pop('iris_id')
-            merge_dicts(data, meta)
+            data = merge_dicts(data, meta)
         for time in ['createdAt', 'closedAt', 'iris_created']:
             tdata = data.get(time)
             if tdata:
