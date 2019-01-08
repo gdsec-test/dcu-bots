@@ -44,7 +44,6 @@ handlers:
         backupCount: 5
         encoding: utf8
 
-# The logger for the root level directory, which is 'newman'
 root:
     level: DEBUG
     handlers: [debug_file_handler, info_file_handler, error_file_handler]
