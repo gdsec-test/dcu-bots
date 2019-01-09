@@ -81,6 +81,12 @@ class Publisher:
             self._conn.close()
 
 
+def merge_dicts(a, b):
+    z = a.copy()
+    z.update(b)
+    return z
+
+
 if __name__ == '__main__':
 
     path = ''
@@ -190,7 +196,12 @@ if __name__ == '__main__':
                 if shopper_country:
                     data['shopper_country'] = shopper_country
 
-        for time in ['createdAt', 'closedAt']:
+        meta = data.pop('metadata', None)
+
+        if meta:
+            meta.pop('iris_id')
+            data = merge_dicts(data, meta)
+        for time in ['createdAt', 'closedAt', 'iris_created']:
             tdata = data.get(time)
             if tdata:
                 data[time] = time_format(tdata)
