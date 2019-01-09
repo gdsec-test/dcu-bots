@@ -86,6 +86,7 @@ def merge_dicts(a, b):
     z.update(b)
     return z
 
+
 if __name__ == '__main__':
 
     path = ''
@@ -114,12 +115,14 @@ if __name__ == '__main__':
         data.pop('_id')
         data.pop('source', None)
         data.pop('similar_tickets', None)
+        data.pop('screenshot_id', None)
         data.pop('initial_screenshot_id', None)
-        data.pop('initial_sourcecode_id', None)
         data.pop('current_screenshot_id', None)
-        data.pop('current_sourcecode_id', None)
         data.pop('s_id', None)
         data.pop('s_create_date', None)
+        data.pop('sourcecode_id', None)
+        data.pop('initial_sourcecode_id', None)
+        data.pop('current_sourcecode_id', None)
         data.pop('last_screen_grab', None)
         data.pop('fraud_hold_until', None)
         data.pop('vip_unconfirmed', None)

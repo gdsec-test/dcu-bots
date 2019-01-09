@@ -18,8 +18,8 @@ def time_format(dt):
     if type(dt) is str or type(dt) is unicode:
         return dt[:-3]
     return "%s:%.3f%sZ" % (dt.strftime('%Y-%m-%dT%H:%M'),
-                          float("%.3f" % (dt.second + dt.microsecond / 1e6)),
-                          dt.strftime('%z'))
+                           float("%.3f" % (dt.second + dt.microsecond / 1e6)),
+                           dt.strftime('%z'))
 
 
 class MongoHelperAPI:
@@ -81,6 +81,7 @@ class Publisher:
         if self._conn and self._conn.is_open:
             self._logger.debug('closing queue connection')
             self._conn.close()
+
 
 if __name__ == '__main__':
 
