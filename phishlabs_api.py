@@ -10,7 +10,7 @@ class PhishlabsAPI:
     caseType = 'Phishing'
     brand = 'GoDaddy'
     title = 'Godaddy Phish Ticket'
-    url_data_api = 'https://clientapi-test.dev.phishlabs.com/v1/data/cases'
+    url_data_api = 'https://caseapi.phishlabs.com/v1/data/cases'
     header_data_api = {'Content-type': 'application/json', 'Accept': 'application/json',
                              'Authorization': 'Basic {}'.format(base64.b64encode('{}:{}'.format(
                                  os.getenv('PHISHLABS_API_USERNAME', 'godaddy.api'),

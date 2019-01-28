@@ -18,9 +18,7 @@ def time_format(dt):
     if type(dt) not in [datetime]:
         logger.error('Received unexpected type: {}'.format(type(dt)))
         return dt
-    return "%s:%.3f%sZ" % (dt.strftime('%Y-%m-%dT%H:%M'),
-                           float("%.3f" % (dt.second + dt.microsecond / 1e6)),
-                           dt.strftime('%z'))
+    return "%s%sZ" % (dt.strftime('%Y-%m-%dT%H:%M:%S'), dt.strftime('%z'))
 
 
 class Publisher:
@@ -92,17 +90,17 @@ if __name__ == '__main__':
         password=os.getenv('BROKER_PASS', 'password'))
     phishlabs_api = PhishlabsAPI()
     response = phishlabs_api.retrieve_tickets(time_format(datetime.today() - timedelta(hours=1)), 'caseModify')
-    if response:
-        phishlabs_data = response.get('data', {}).pop(0)
+    if response and response.get('data'):
+        phishlabs_data = response.get('data', None).pop(0)
         data = {}
         data['caseId'] = phishlabs_data.get('caseId', None)
         data['caseNumber'] = phishlabs_data.get('caseNumber', None)
         data['caseStatus'] = phishlabs_data.get('caseStatus', None)
         data['caseType'] = phishlabs_data.get('caseType', None)
         data['createdBy'] = phishlabs_data.get('createdBy', {}).get('name', None)
-        data['dateCreated'] = time_format(phishlabs_data.get('dateCreated', None))
-        data['dateClosed'] = time_format(phishlabs_data.get('dateClosed', None))
-        data['dateModified'] = time_format(phishlabs_data.get('dateModified', None))
+        data['dateCreated'] = phishlabs_data.get('dateCreated', None)
+        data['dateClosed'] = phishlabs_data.get('dateClosed', None)
+        data['dateModified'] = phishlabs_data.get('dateModified', None)
         data['description'] = phishlabs_data.get('description', None)
         data['notes'] = phishlabs_data.get('notes', None)
         data['resolutionStatus'] = phishlabs_data.get('resolutionStatus', None)
