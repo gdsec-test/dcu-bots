@@ -88,24 +88,26 @@ if __name__ == '__main__':
         virtual_host='grandma',
         username=os.getenv('BROKER_USER', 'user'),
         password=os.getenv('BROKER_PASS', 'password'))
+    rabbit.connect()
     phishlabs_api = PhishlabsAPI()
-    response = phishlabs_api.retrieve_tickets(time_format(datetime.today() - timedelta(hours=1)), 'caseModify')
+    response = phishlabs_api.retrieve_tickets(time_format(datetime.utcnow() - timedelta(hours=1)), 'caseModify')
     if response and response.get('data'):
-        phishlabs_data = response.get('data', None).pop(0)
-        data = {}
-        data['caseId'] = phishlabs_data.get('caseId', None)
-        data['caseNumber'] = phishlabs_data.get('caseNumber', None)
-        data['caseStatus'] = phishlabs_data.get('caseStatus', None)
-        data['caseType'] = phishlabs_data.get('caseType', None)
-        data['createdBy'] = phishlabs_data.get('createdBy', {}).get('name', None)
-        data['dateCreated'] = phishlabs_data.get('dateCreated', None)
-        data['dateClosed'] = phishlabs_data.get('dateClosed', None)
-        data['dateModified'] = phishlabs_data.get('dateModified', None)
-        data['description'] = phishlabs_data.get('description', None)
-        data['notes'] = phishlabs_data.get('notes', None)
-        data['resolutionStatus'] = phishlabs_data.get('resolutionStatus', None)
-        rabbit.connect()
-        rabbit.publish(data)
+        for case in response.get('data'):
+            data = {}
+            data['caseId'] = case.get('caseId', None)
+            data['caseNumber'] = case.get('caseNumber', None)
+            data['caseStatus'] = case.get('caseStatus', None)
+            data['caseType'] = case.get('caseType', None)
+            data['createdBy'] = case.get('createdBy', {}).get('name', None)
+            data['dateCreated'] = case.get('dateCreated', None)
+            dateClosed = case.get('dateClosed', None)
+            if dateClosed != '0001-01-01T00:00:00Z':
+                data['dateClosed'] = dateClosed
+            data['dateModified'] = case.get('dateModified', None)
+            data['description'] = case.get('description', None)
+            data['notes'] = case.get('notes', None)
+            data['resolutionStatus'] = case.get('resolutionStatus', None)
+            rabbit.publish(data)
         logger.info("PhishLabs Stats retrieved. Finished PhishLabs stats retrieval")
     else:
         logger.info("No PhishLabs Stats retrieved. Finished PhishLabs stats retrieval")
