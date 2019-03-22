@@ -1,16 +1,19 @@
 # missed tickets script requirements
-requests
-pymongo
-celery
+requests==2.21.0
+pymongo==3.7.2
+celery==4.2.1
 
 # apibot requirements
-redis
+redis==3.2.0
 
 # snow to IRIS requirements
-suds
-suds-jurko
+suds==0.4
+suds-jurko==0.6
 
 # journal
-datetime
-pika
-Pyyaml
+datetime==4.3
+pika==0.13.0
+Pyyaml==3.13
+
+# IRIS connection
+pyodbc==4.0.26
