@@ -139,6 +139,8 @@ if __name__ == '__main__':
                     data['brand'] = brand
                 if product:
                     data['product'] = product
+            data['sucuri_product'] = extra.get('domainQuery', {}).get('securitySubscription', {}).get('sucuriProduct', [])
+
         meta = data.pop('metadata', None)
         if meta:
             merge_dicts(data, meta)
