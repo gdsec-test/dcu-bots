@@ -50,6 +50,7 @@ class ReturntoMiddleware:
         except Exception as e:
             self._logger.error("Unable to send payload to Middleware {} {}.".format(payload.get('ticketId'), e.message))
 
+
 if __name__ == '__main__':
     path = ''
     value = os.getenv('LOG_CFG', None)
