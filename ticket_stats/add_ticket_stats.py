@@ -144,7 +144,7 @@ if __name__ == '__main__':
         meta = data.pop('metadata', None)
         if meta:
             merge_dicts(data, meta)
-        for time in ['created', 'closed', 'iris_created']:
+        for time in ['created', 'closed', 'iris_created', 'opened']:
             tdata = data.get(time)
             if tdata:
                 data[time] = time_format(tdata)
