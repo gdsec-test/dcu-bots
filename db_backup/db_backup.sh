@@ -27,12 +27,15 @@
 #   - APP_SLACK_USERNAME (optional)
 #   - APP_SLACK_ICON_EMOJI (optional)
 # You may also declare them in ~/.slackrc file.
-# We declared these variables in ~/.slackrc file
+# We declared these variables in /etc/profile.d/slack.sh file
 ####################################################################################
 
 #DBdump Script
 
-source kelvin_backup_bot.ini
+# $1 is the first parameter passed in, which should be either "kelvin" or "phishstory". This tells the script which
+#  ini file to source.
+source "/home/dcu-bots/db_backup/$1_backup_bot.ini"
+. /etc/profile.d/slack.sh
 
 #Create the backup directory
 mkdir -p $DEST/$DIR

@@ -1,8 +1,12 @@
 # dcu-bots
 Home for bots
 
+## Table of Contents
+  1. [Missed Ticket Bot](#missed-ticket-bot)
+  2. [Database Backups](#database-backups)
+
 API Bot
-Missed Ticket Bot
+## Missed Ticket Bot
 
 NOTE: Each script will look for an ```.ini``` file to read its settings from. The settings file should be named ```<script_name>_settings.ini``` and placed in the same directory as its parent script. Be sure to set the permissions on the ```.ini``` files appropriately so that no passwords are readable. Listed below are example ```.ini``` files for each of the scripts. Values surrounded with ```< >``` will need to be substituted with real values before runtime
 
@@ -80,3 +84,22 @@ key_secret = <secret:key>
 sso_url = https://sso.dev-godaddy.com
 ```
 Three environments need to be defined in the above settings file. NOTE: all three environments have the same keys defined. Only the values will change based on the environment.
+
+## Database Backups
+Since DCU is responsible for backing up their own Mongo databases, we have backup scripts on the `bots-box` VM, which is also where the actual backed up files are located
+
+There is one backup script responsible for backing up all databases, which is located at `/home/dcu-bots/db_backup/db_backup.sh`
+
+### Kelvin Backups
+The `/home/dcu-bots/db_backups/kelvin_backup_bot.ini` file contains the settings required to backup the Kelvin specific collections
+
+The crontab for this backup is: `59  23  *  *  *     /home/dcu-bots/db_backup/db_backup.sh kelvin`
+
+The backup files will be written to the `/home/db_backups/kelvin/` directory
+
+### Phishstory Backups
+The `/home/dcu-bots/db_backups/phishstory_backup_bot.ini` file contains the settings required to backup the PhishStory specific collections
+
+The crontab for this backup is: `59  21  *  *  *     /home/dcu-bots/db_backup/db_backup.sh phishstory`
+
+The backup files will be written to the `/home/db_backups/phishstory/` directory
