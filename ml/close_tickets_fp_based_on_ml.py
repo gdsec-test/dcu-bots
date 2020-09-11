@@ -128,7 +128,7 @@ def setup_logging():
     :return: handle to the logger
     """
     try:
-        path = './logging.yaml'
+        path = '/home/dcu-bots/ml/logging.yaml'
         if path and os.path.exists(path):
             with open(path, 'rt') as f:
                 l_config = yaml.safe_load(f.read())
