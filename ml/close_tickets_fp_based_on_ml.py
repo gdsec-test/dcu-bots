@@ -55,16 +55,17 @@ class DBHelper:
         client[env_settings.get('db')].authenticate(env_settings.get('db_user'),
                                                     env_settings.get('db_pass'),
                                                     mechanism=env_settings.get('db_auth_mechanism'))
-        self._db = client[settings.get('db')]
+        db = client[settings.get('db')]
         self._api_handle = api_handle
-        self._collection = self._db.incidents
+        self._collection = db.incidents
+        self._client = client
 
     def close_connection(self):
         """
         Closes the connection to the db
         :return: None
         """
-        self._db.close()
+        self._client.close()
 
     def _update_actions_subdocument(self, ticket_id):
         """
@@ -78,7 +79,7 @@ class DBHelper:
         if self._collection.update_one({'_id': ticket_id},
                                        {'$push': {'actions': {
                                            'origin': origin_string,
-                                           'timestamp': datetime.now(),
+                                           'timestamp': datetime.utcnow(),
                                            'message': 'closed as false positive',
                                            'user': 'automation'
                                        }}}, upsert=True):
