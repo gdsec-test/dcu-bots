@@ -387,7 +387,7 @@ def iterate_env():
         logger.fatal('Configuration error: {}'.format(e.message))
 
     try:
-        redis = Redis("localhost")
+        redis = Redis(host='localhost', port=6379, password=endpoint_data.get('prod', {}).get('redis_password'))
     except Exception as e:
         logger.error("FATAL: Cant connect to Redis: " + str(e))
         return
