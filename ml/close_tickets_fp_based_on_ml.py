@@ -81,7 +81,7 @@ class DBHelper:
                                            'origin': origin_string,
                                            'timestamp': datetime.utcnow(),
                                            'message': 'closed as false positive',
-                                           'user': 'automation'
+                                           'user': 'ml_automation'
                                        }}}, upsert=True):
             success = True
         return success
