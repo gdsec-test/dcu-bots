@@ -3,11 +3,37 @@ import logging
 import os
 import yaml
 import requests
+import urllib
 from requests import sessions
 from datetime import datetime
 from logging.config import dictConfig
 from pymongo import MongoClient
 from ConfigParser import SafeConfigParser
+from celery import Celery
+from kombu import Exchange, Queue
+
+
+class CeleryConfig:
+    BROKER_TRANSPORT = 'pyamqp'
+    BROKER_USE_SSL = True
+    CELERY_TASK_SERIALIZER = 'pickle'
+    CELERY_RESULT_SERIALIZER = 'json'
+    CELERY_ACCEPT_CONTENT = ['json']
+    CELERY_IMPORTS = 'run'
+    CELERYD_HIJACK_ROOT_LOGGER = False
+
+    def __init__(self, settings):
+        queue = settings.get('celery_queue')
+        task = settings.get('celery_task')
+
+        self.CELERY_QUEUES = (
+            Queue(queue, Exchange(queue), routing_key=queue),
+        )
+        self.CELERY_ROUTES = {task: {'queue': queue}}
+        self.BROKER_PASS = settings.get('broker_pass')
+        self.BROKER_USER = settings.get('broker_user')
+        self.BROKER_URL = settings.get('broker_url')
+        self.BROKER_URL = 'amqp://' + self.BROKER_USER + ':' + urllib.quote(self.BROKER_PASS) + '@' + self.BROKER_URL
 
 
 class CMAPHelper:
@@ -137,29 +163,40 @@ class DBHelper:
     KEY_KELVIN_STATUS = 'kelvinStatus'
     KEY_USERGEN = 'userGen'
 
-    def __init__(self, env_settings, cmap_service):
+    def __init__(self, env_settings, cmap_service, db_name, db_user, db_pass, kelvin):
         """
         :param env_settings: dict from ini settings file
         :param cmap_service: handle to the cmap service helper
+        :param db_name:
+        :param db_user:
+        :param db_pass:
+        :param kelvin: bool if Kelvin tickets
+
         """
         self._logger = logging.getLogger(__name__)
         client = MongoClient(env_settings.get('db_url'))
-        client[env_settings.get('db_k')].authenticate(env_settings.get('db_user_k'),
-                                                      env_settings.get('db_pass_k'),
-                                                      mechanism=env_settings.get('db_auth_mechanism'))
-        self._db = client[settings.get('db_k')]
-        self._collection = self._db.incidents
+        client[env_settings.get(db_name)].authenticate(env_settings.get(db_user),
+                                                       env_settings.get(db_pass),
+                                                       mechanism=env_settings.get('db_auth_mechanism'))
+        _db = client[settings.get(db_name)]
+        self._collection = _db.incidents
         self._pdna_reporter = env_settings.get('pdna_reporter_id')
         self._cmap = cmap_service
+        self._client = client
+        self._kelvin = kelvin
+
+        capp = Celery()
+        capp.config_from_object(CeleryConfig(env_settings))
+        self._celery = capp
 
     def close_connection(self):
         """
         Closes the connection to the db
         :return: None
         """
-        self._db.close()
+        self._client.close()
 
-    def _convert_snow_ticket_to_mongo_record(self, snow_ticket):
+    def _convert_snow_ticket_to_mongo_record_kelvin(self, snow_ticket):
         """
         Builds a dict in the format of a db record
         :param snow_ticket: dict of SNOW ticket key/value pairs
@@ -190,6 +227,29 @@ class DBHelper:
                                                                        dq.get('registrar', {}).get('brand'))
         return db_record
 
+    def _convert_snow_ticket_to_mongo_record_phishstory(self, snow_ticket):
+        """
+        Builds a dict in the format of a db record
+        :param snow_ticket: dict of SNOW ticket key/value pairs
+        :return: dict of DB record key/value pairs
+        """
+        db_record = {
+            'createdAt': datetime.strptime(snow_ticket.get('sys_created_on'), '%Y-%m-%d %H:%M:%S'),
+            'ticketID': snow_ticket.get('u_number'),
+            'source': snow_ticket.get('u_source'),
+            'sourceDomainOrIP': snow_ticket.get('u_source_domain_or_ip'),
+            'type': snow_ticket.get('u_type'),
+            'target': snow_ticket.get('u_target', ''),
+            'proxy': snow_ticket.get('u_proxy_ip', ''),
+            'reporter': snow_ticket.get('u_reporter')
+        }
+        if snow_ticket.get('u_info'):
+            db_record['info'] = snow_ticket['u_info']
+
+        self._send_to_middleware(db_record)
+
+        return db_record
+
     def create_tickets_based_on_snow(self, list_of_snow_tickets):
         """
         Loop through all SNOW tickets and if they don't exist in the DB, then create them
@@ -201,8 +261,23 @@ class DBHelper:
             # Check to see if ticket id exists in DB
             if not self._collection.find_one({"ticketID": ticket.get('u_number')}):
                 self._logger.info('Creating DB ticket for: {}'.format(ticket.get('u_number')))
-                self._collection.insert_one(self._convert_snow_ticket_to_mongo_record(ticket))
+                if self._kelvin:
+                    self._collection.insert_one(self._convert_snow_ticket_to_mongo_record_kelvin(ticket))
+                else:
+                    self._collection.insert_one(self._convert_snow_ticket_to_mongo_record_phishstory(ticket))
         self._logger.info("Finish DB Ticket Query/Creation")
+
+    def _send_to_middleware(self, payload):
+        """
+        A helper function to send Celery tasks to the Middleware Queue with the provided payload
+        :param payload:
+        :return:
+        """
+        try:
+            self._logger.info("Sending payload to Middleware {}.".format(payload.get('ticketId')))
+            self._celery.send_task('run.process', (payload,))
+        except Exception as e:
+            self._logger.error("Unable to send payload to Middleware {} {}.".format(payload.get('ticketId'), e.message))
 
 
 class SNOWHelper:
@@ -210,16 +285,15 @@ class SNOWHelper:
     Get all tickets that were created in SNOW Kelvin after MongoDB was down
     """
     HEADERS = {"Content-Type": "application/json", "Accept": "application/json"}
-    # TODO: Set the QUERY_TIME to a datetime prior to when the db was taken offline
     # Need to provide a date and time to search from in the following format: 'YYYY-MM-DD','hh:mm:ss'
     QUERY_TIME = "'2020-08-01','0:0:0'"
 
-    def __init__(self, env_settings):
+    def __init__(self, env_settings, snow_table_url):
         """
         :param env_settings: dict from ini settings file
         """
         self._logger = logging.getLogger(__name__)
-        self._url = env_settings.get('snow_kelvin_url').format(querytime=self.QUERY_TIME)
+        self._url = env_settings.get(snow_table_url).format(querytime=self.QUERY_TIME)
         self._auth = (env_settings.get('snow_user'), env_settings.get('snow_pass'))
 
     def get_tickets_created_during_downtime(self):
@@ -276,7 +350,8 @@ def setup_logging():
 if __name__ == '__main__':
     """
     This script should be used after the DCU Mongo database has been brought back up from an outage, as tickets
-    submitted to the Abuse API were written into SNOW.  This script will search all SNOW tickets given a datetime
+    submitted to the Abuse API were written into SNOW.  This script will search all SNOW tickets given a datetime (which
+    needs to be defined by person running this script in the variable QUERY_TIME within the SNOWHelper class)
     and then query the database to see if the ticket is present.  If the ticket is not present, then the script will
     insert the record.
     """
@@ -286,17 +361,25 @@ if __name__ == '__main__':
     logger.info('Started {} for Kelvin'.format(PROCESS_NAME))
 
     db_client = None
+    settings = None
+    cmap_client = None
+
     try:
         settings = read_config()
-
-        # Create handle to SNOW
-        snow_client = SNOWHelper(settings)
 
         # Create handle to CMAP Service API
         cmap_client = CMAPHelper(settings)
 
+    except Exception as e:
+        logger.fatal(e.message)
+
+    try:
+
+        # Create handle to SNOW
+        snow_client = SNOWHelper(settings, 'snow_kelvin_url')
+
         # Create handle to the DB
-        db_client = DBHelper(settings, cmap_client)
+        db_client = DBHelper(settings, cmap_client, 'db_k', 'db_user_k', 'db_pass_k', kelvin=True)
 
         # Retrieve Kelvin Mongo Downtime tickets from SNOW API
         snow_tickets = snow_client.get_tickets_created_during_downtime()
@@ -305,8 +388,32 @@ if __name__ == '__main__':
         db_client.create_tickets_based_on_snow(snow_tickets)
 
     except Exception as e:
-        logger.fatal(e.message)
+        logger.error(e.message)
     finally:
         if db_client:
             db_client.close_connection()
         logger.info('Finished {} for Kelvin\n'.format(PROCESS_NAME))
+
+    logger.info('Started {} for Phishstory'.format(PROCESS_NAME))
+
+    db_client = None
+    try:
+
+        # Create handle to SNOW
+        snow_client = SNOWHelper(settings, 'snow_url')
+
+        # Create handle to the DB
+        db_client = DBHelper(settings, cmap_client, 'db', 'db_user', 'db_pass', kelvin=False)
+
+        # Retrieve Phishstory Mongo Downtime tickets from SNOW API
+        snow_tickets = snow_client.get_tickets_created_during_downtime()
+
+        # Pass snow ticket list to DB helper, to create tickets that dont exist in DB
+        db_client.create_tickets_based_on_snow(snow_tickets)
+
+    except Exception as e:
+        logger.error(e.message)
+    finally:
+        if db_client:
+            db_client.close_connection()
+        logger.info('Finished {} for Phishstory\n'.format(PROCESS_NAME))
