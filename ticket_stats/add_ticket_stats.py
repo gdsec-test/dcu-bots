@@ -7,6 +7,10 @@ import yaml
 from logging.config import dictConfig
 from datetime import datetime, timedelta
 
+KEYS2KEEP = ['blacklist', 'brand', 'close_reason', 'closed', 'created', 'data', 'evidence',
+             'hosted_status', 'iris_created', 'metadata', 'opened', 'phishstory_status', 'proxy',
+             'reporter', 'sourceDomainOrIp', 'target', 'ticketId', 'type']
+
 
 def time_format(dt):
     """
@@ -20,6 +24,18 @@ def time_format(dt):
     return "%s:%.3f%sZ" % (dt.strftime('%Y-%m-%dT%H:%M'),
                            float("%.3f" % (dt.second + dt.microsecond / 1e6)),
                            dt.strftime('%z'))
+
+
+def pop_dict_values(my_dict):
+    """
+    POP all fields that are NOT listed in KEYS2KEEP, from the dictionary provided,
+    so they are NOT published to Rabbit
+    :param my_dict: dictionary of the ticket's DB key:value pairs
+    :return: None
+    """
+    for key in my_dict.keys():
+        if key not in KEYS2KEEP:
+            my_dict.pop(key, None)
 
 
 class MongoHelperAPI:
@@ -59,11 +75,14 @@ class Publisher:
                 exchange=self.EXCHANGE, exchange_type=self.TYPE, durable=True)
 
     def _publish(self, msg):
-        self._channel.basic_publish(
-            exchange=self.EXCHANGE,
-            routing_key=self.ROUTING_KEY,
-            body=json.dumps(msg).encode())
-        self._logger.debug('message sent: %s', msg)
+        try:
+            self._channel.basic_publish(
+                exchange=self.EXCHANGE,
+                routing_key=self.ROUTING_KEY,
+                body=json.dumps(msg).encode())
+            self._logger.debug('message sent: %s', msg)
+        except TypeError as e:
+            self._logger.error('Failed to publish ticket {}: {}'.format(msg.get('ticketId'), e.message))
 
     def publish(self, msg):
         """Publish msg, reconnecting if necessary."""
@@ -112,23 +131,7 @@ if __name__ == '__main__':
     rabbit.connect()
     for data in mongo.handle().find({'$or': [{'last_modified': {'$gte': datetime.utcnow() - timedelta(hours=1)}},
                                              {'closed': {'$gte': datetime.utcnow() - timedelta(hours=1)}}]}):
-        data.pop('_id')
-        data.pop('source', None)
-        data.pop('similar_tickets', None)
-        data.pop('screenshot_id', None)
-        data.pop('initial_screenshot_id', None)
-        data.pop('current_screenshot_id', None)
-        data.pop('s_id', None)
-        data.pop('s_create_date', None)
-        data.pop('sourcecode_id', None)
-        data.pop('initial_sourcecode_id', None)
-        data.pop('current_sourcecode_id', None)
-        data.pop('last_screen_grab', None)
-        data.pop('fraud_hold_until', None)
-        data.pop('vip_unconfirmed', None)
-        data.pop('sourceSubDomain', None)
-        data.pop('hold_until', None)
-        data.pop('last_modified', None)
+        pop_dict_values(data)
         extra = data.pop('data', None)
         if extra:
             host_data = extra.get('domainQuery', {}).get('host')
@@ -139,7 +142,9 @@ if __name__ == '__main__':
                     data['brand'] = brand
                 if product:
                     data['product'] = product
-            data['security_subscriptions'] = extra.get('domainQuery', {}).get('securitySubscription', {}).get('sucuriProduct', [])
+            data['security_subscriptions'] = extra.get('domainQuery', {})\
+                .get('securitySubscription', {})\
+                .get('sucuriProduct', [])
 
         meta = data.pop('metadata', None)
         if meta:
@@ -152,5 +157,8 @@ if __name__ == '__main__':
                 if time == 'created':
                     opent = data.get('closed')
                     data[time] = time_format(opent)
+                else:
+                    # If the timestamp field doesnt have a value, just pop it
+                    data.pop(time, None)
         rabbit.publish(data)
     logger.info("Finished ticket stats retrieval")
