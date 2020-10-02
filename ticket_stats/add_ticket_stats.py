@@ -21,8 +21,8 @@ def time_format(dt):
     if type(dt) not in [datetime]:
         logger.error('Received unexpected type: {}'.format(type(dt)))
         return dt
-    return "%s:%.3f%sZ" % (dt.strftime('%Y-%m-%dT%H:%M'),
-                           float("%.3f" % (dt.second + dt.microsecond / 1e6)),
+    return '%s:%.3f%sZ' % (dt.strftime('%Y-%m-%dT%H:%M'),
+                           float('%.3f' % (dt.second + dt.microsecond / 1e6)),
                            dt.strftime('%z'))
 
 
@@ -85,8 +85,11 @@ class Publisher:
             self._logger.error('Failed to publish ticket {}: {}'.format(msg.get('ticketId'), e.message))
 
     def publish(self, msg):
-        """Publish msg, reconnecting if necessary."""
-
+        """
+        Publish msg, reconnecting if necessary.
+        :param msg: dictionary of payload to publish
+        :return: None
+        """
         try:
             self._publish(msg)
         except pika.exceptions.ConnectionClosed:
@@ -120,7 +123,7 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    logger.info("Starting ticket data retrieval")
+    logger.info('Starting ticket data retrieval')
     mongo = MongoHelperAPI()
     rabbit = Publisher(
         host='rmq-dcu.int.godaddy.com',
@@ -161,4 +164,4 @@ if __name__ == '__main__':
                     # If the timestamp field doesnt have a value, just pop it
                     data.pop(time, None)
         rabbit.publish(data)
-    logger.info("Finished ticket stats retrieval")
+    logger.info('Finished ticket stats retrieval')

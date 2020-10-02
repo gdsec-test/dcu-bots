@@ -17,8 +17,8 @@ def time_format(dt):
     if type(dt) not in [datetime]:
         logger.error('Received unexpected type: {}'.format(type(dt)))
         return dt
-    return "%s:%.3f%sZ" % (dt.strftime('%Y-%m-%dT%H:%M'),
-                           float("%.3f" % (dt.second + dt.microsecond / 1e6)),
+    return '%s:%.3f%sZ' % (dt.strftime('%Y-%m-%dT%H:%M'),
+                           float('%.3f' % (dt.second + dt.microsecond / 1e6)),
                            dt.strftime('%z'))
 
 
@@ -101,7 +101,7 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    logger.info("Starting Kelvin stats retrieval")
+    logger.info('Starting Kelvin stats retrieval')
     mongo = MongoHelperAPI()
     rabbit = Publisher(
         host='rmq-dcu.int.godaddy.com',
@@ -206,4 +206,4 @@ if __name__ == '__main__':
             if tdata:
                 data[time] = time_format(tdata)
         rabbit.publish(data)
-    logger.info("Finished Kelvin stats retrieval")
+    logger.info('Finished Kelvin stats retrieval')

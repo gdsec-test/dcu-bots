@@ -24,7 +24,7 @@ from redis import Redis
 
     Logging occurs in the file: ~root/apibot.log
 
-    If you pass in a single argument "debug", then the program will run with parameters which
+    If you pass in a single argument 'debug', then the program will run with parameters which
     will work on Brett Berry's MAC
 
     Message should indicate whether external API failed at the gateway, at sso or at the endpoint (Redis)
@@ -57,7 +57,7 @@ from redis import Redis
 """
 
 logging.basicConfig(filename='apibot.log', level=logging.INFO,
-                    format="[%(levelname)s:%(asctime)s:%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+                    format='[%(levelname)s:%(asctime)s:%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s'
                     )
 logger = logging.getLogger(__name__)
 
@@ -69,14 +69,14 @@ if len(sys.argv) > 1:
     if sys.argv[1].lower() == 'debug':
         DEBUG = True
         logger.setLevel(logging.DEBUG)
-        logger.debug("Debug is ON")
+        logger.debug('Debug is ON')
 
 """ SET UP CONSTANT PERTAINING TO RECHECK AFTER ANY INITIAL FAILURE
 """
 
 RECHECK_SSO_FAILURE = 10  # num of times to re-check sso after a failure
-RECHECK_EXT_CURL = 10  # "                      " external url
-RECHECK_INT_CURL = 10  # "                      " internal url
+RECHECK_EXT_CURL = 10  # '                      ' external url
+RECHECK_INT_CURL = 10  # '                      ' internal url
 RECHECK_SSO_DELAY = 1  # sleep time in seconds for sso re-check
 RECHECK_CURL_DELAY = 5  # sleep time in seconds for endpoint re-curl
 FAILURE_THRESHOLD = 0.7  # only send alerts when failure rate is 70% or greater
@@ -97,8 +97,8 @@ class Payload(object):
     thumbs_down = ':-1:'
     icon = ''
     text = ''
-    email_addresses = ['bxberry', 'abean', 'amarlar', 'chauser', 'pmcconnell', 'lhalvorson', 'ebenson', 'spetersen',
-                       'ssanfratello']
+    email_addresses = ['bxberry', 'abean', 'sneiswonger', 'chauser', 'pmcconnell', 'lhalvorson',
+                       'ebenson', 'spetersen', 'ssanfratello']
     if DEBUG:
         email_addresses = ['bxberry', 'abean']
 
@@ -108,7 +108,7 @@ class Payload(object):
         if up:
             self.icon = self.thumbs_up
 
-        self.text = "<!channel> {msg} for {env} Abuse API".format(
+        self.text = '<!channel> {msg} for {env} Abuse API'.format(
             msg=msg,
             env=env
         )
@@ -126,13 +126,13 @@ class Payload(object):
         }
         return d_payload
 
-    ''' Prints the payload to a defined slack channel
-    '''
+    """ Prints the payload to a defined slack channel
+    """
 
     def print_to_slack(self):
         resp = requests.post(configp.get('slack', 'slack_url'),
                              data=self.get_payload())
-        logger.debug("Print to Slack response: " + str(resp))
+        logger.debug('Print to Slack response: ' + str(resp))
 
     def email_payload(self):
         msg = MIMEText(self.get_text())
@@ -149,7 +149,7 @@ class Payload(object):
             s.quit()
 
         except Exception as e:
-            logger.error("Error sending mail: " + str(e))
+            logger.error('Error sending mail: ' + str(e))
 
     def report_message(self, message):
         logger.error(message)
@@ -173,9 +173,9 @@ def procedural_set_error(myenv, redis, error_flag, message):
             payload.set_text(myenv, message, False)
             payload.report_message(message)
 
-            ''' Set Redis error flag key
-            '''
-            redis.set(error_flag, "1")
+            """ Set Redis error flag key
+            """
+            redis.set(error_flag, '1')
     except Exception as e:
         logger.error(e.message)
 
@@ -189,52 +189,52 @@ def procedural_recover_error(myenv, redis, error_flag):
     """ Check Redis for error flag key """
     error_flag_val = redis.get(error_flag)
 
-    ''' if error flag key, print '''
-    if error_flag_val == "1":
-        ''' SLACK the fact that the API recovered
-        '''
-        message = "API RECOVERED"
+    """ if error flag key, print """
+    if error_flag_val == '1':
+        """ SLACK the fact that the API recovered
+        """
+        message = 'API RECOVERED'
         payload.set_text(myenv, message)
         payload.print_to_slack()
 
-        ''' Clear Redis error flag key '''
+        """ Clear Redis error flag key """
         redis.delete(error_flag)
 
     else:
 
-        ''' If No Redis error flag key, check current time
+        """ If No Redis error flag key, check current time
             print if current time is between 6:00am & 6:09am
-        '''
+        """
 
         six = datetime.datetime.strptime('06:00', '%H:%M')
         sixnine = datetime.datetime.strptime('06:09', '%H:%M')
         curtime = datetime.datetime.now()
 
         if six.time() <= curtime.time() <= sixnine.time():
-            message = "API OK"
+            message = 'API OK'
             payload.set_text(myenv, message)
             payload.print_to_slack()
 
-    ''' Clear Redis error flag key
-    '''
+    """ Clear Redis error flag key
+    """
     redis.delete(error_flag)
 
 
 def procedural_check_sso(myenv, session):
     if DEBUG:
-        print("In procedural_check_sso(): " + str(myenv))
-    logger.debug("In procedural_check_sso(): " + str(myenv))
+        print('In procedural_check_sso(): ' + str(myenv))
+    logger.debug('In procedural_check_sso(): ' + str(myenv))
     # Stop bot from breaking on ote check
     if myenv == 'ote':
         return True
 
-    ''' Check to see if the SSO is accessible
-    '''
+    """ Check to see if the SSO is accessible
+    """
 
     try:
 
-        ''' Stagger the re-checks by RECHECK_TIME_DELAY seconds
-        '''
+        """ Stagger the re-checks by RECHECK_TIME_DELAY seconds
+        """
         time.sleep(RECHECK_SSO_DELAY)
         status = session.get(endpoint_data[myenv]['sso_url'])
 
@@ -244,7 +244,7 @@ def procedural_check_sso(myenv, session):
             return False
 
     except Exception as e:
-        logger.error("Error running {}:{}".format(endpoint_data[myenv]['sso_url'], str(e)))
+        logger.error('Error running {}:{}'.format(endpoint_data[myenv]['sso_url'], str(e)))
         return False
 
 
@@ -252,23 +252,23 @@ def procedural_curl_endpoint(myenv, curl_string):
     try:
 
         if DEBUG:
-            print("In procedural_curl_endpoint(): " + str(myenv))
-        logger.debug("In procedural_curl_endpoint(): " + str(myenv))
+            print('In procedural_curl_endpoint(): ' + str(myenv))
+        logger.debug('In procedural_curl_endpoint(): ' + str(myenv))
 
-        ''' Stagger the re-checks by RECHECK_TIME_DELAY seconds
-        '''
+        """ Stagger the re-checks by RECHECK_TIME_DELAY seconds
+        """
         time.sleep(RECHECK_CURL_DELAY)
 
         status, output = commands.getstatusoutput(curl_string)
-        curl_status = "Status:{status}, Output:{output}".format(status=status, output=output)
+        curl_status = 'Status:{status}, Output:{output}'.format(status=status, output=output)
         logger.info(curl_status)
 
     except Exception as e:
-        logger.error("ERROR: " + myenv + ": Unknown Error running '" + str(curl_string) + "': " + str(e))
+        logger.error('ERROR: ' + myenv + ': Unknown Error running "' + str(curl_string) + '": ' + str(e))
         return False
 
-    ''' CURLing endpoint was successful
-    '''
+    """ CURLing endpoint was successful
+    """
     if output[-2:] == 'ok':
         return True
     return False
@@ -282,11 +282,11 @@ def procedural_check(myenv, redis, error_flag):
             result_set = map(functools.partial(procedural_check_sso, session=session),
                              myenv * RECHECK_SSO_FAILURE)
             if (result_set.count(False)/RECHECK_SSO_FAILURE) >= FAILURE_THRESHOLD:
-                message = "WARNING: {env} SSO Failed in {a} out of {b} attempts - Issue: {reason}:{url}".format(
+                message = 'WARNING: {env} SSO Failed in {a} out of {b} attempts - Issue: {reason}:{url}'.format(
                     env=myenv[0],
                     a=result_set.count(False),
                     b=RECHECK_SSO_FAILURE,
-                    reason="Unable to communicate with SSO URL",
+                    reason='Unable to communicate with SSO URL',
                     url=endpoint_data[myenv[0]]['sso_url']
                 )
 
@@ -295,12 +295,12 @@ def procedural_check(myenv, redis, error_flag):
 
     # Curl the External API endpoint
 
-    curl_string = "curl -XGET -H 'Content-Type: application/json' -H " \
-                  "'Authorization: sso-key {key_secret}' {url} ".format(
+    curl_string = 'curl -XGET -H "Content-Type: application/json" -H ' \
+                  '"Authorization: sso-key {key_secret}" {url} '.format(
                         key_secret=endpoint_data[myenv[0]]['key_secret'],
                         url=endpoint_data[myenv[0]]['ext_url']
                     )
-    logger.info("CURLing: " + curl_string)
+    logger.info('CURLing: ' + curl_string)
 
     if procedural_curl_endpoint(myenv[0], curl_string):
 
@@ -318,33 +318,34 @@ def procedural_check(myenv, redis, error_flag):
 
             # External endpoint is degraded, so curl internal endpoint
 
-            message = "FATAL: API DOWN for {env} Abuse API - {a} out of {b} attempts failed - Reason: {reason}".format(
+            message = 'FATAL: API DOWN for {env} Abuse API - {a} out of {b} attempts failed - Reason: {reason}'.format(
                 env=myenv[0],
-                reason="External Endpoint Not Responding / Check PLATAPI and LBASS",
+                reason='External Endpoint Not Responding / Check SSO',
                 a=result_set.count(False),
                 b=RECHECK_EXT_CURL
             )
 
-            curl_string = "curl -XGET -H 'Content-Type: application/json' -H " \
-                          "'Authorization: sso-key {key_secret}' {url} ".format(
+            curl_string = 'curl -XGET -H "Content-Type: application/json" -H ' \
+                          '"Authorization: sso-key {key_secret}" {url} '.format(
                                 key_secret=endpoint_data[myenv[0]]['key_secret'],
                                 url=endpoint_data[myenv[0]]['int_url']
                             )
-            logger.info("CURLing: " + curl_string)
+            logger.info('CURLing: ' + curl_string)
 
             if not procedural_curl_endpoint(myenv[0], curl_string):
-                ''' External endpoint failed.  Re-run X number of times using map '''
+                """ External endpoint failed.  Re-run X number of times using map """
                 result_set = map(procedural_curl_endpoint,
                                  myenv * RECHECK_INT_CURL,
                                  [curl_string] * RECHECK_INT_CURL)
 
                 if (result_set.count(False)/RECHECK_INT_CURL) >= FAILURE_THRESHOLD:
-                    message = "FATAL: API DOWN for {env} Abuse API -  {a} out of {b} attempts failed - Reason: {reason}".format(
-                        env=myenv[0],
-                        reason="Internal Endpoint Not Responding / Check RANCHER and REDIS",
-                        a=result_set.count(False),
-                        b=RECHECK_INT_CURL
-                    )
+                    message = 'FATAL: API DOWN for {env} Abuse API -  {a} out of {b} attempts' + \
+                              'failed - Reason: {reason}'.format(
+                                  env=myenv[0],
+                                  reason='Internal Endpoint Not Responding / Check REDIS',
+                                  a=result_set.count(False),
+                                  b=RECHECK_INT_CURL
+                              )
 
             # Alert the endpoint response degradation
 
@@ -363,7 +364,7 @@ def iterate_env():
     """ We use redis to archive the error flag,
         so we know if we've recovered from an issue
     """
-    logger.info("Starting...")
+    logger.info('Starting...')
     global endpoint_data
 
     try:
@@ -389,21 +390,21 @@ def iterate_env():
     try:
         redis = Redis(host='localhost', port=6379, password=endpoint_data.get('prod', {}).get('redis_password'))
     except Exception as e:
-        logger.error("FATAL: Cant connect to Redis: " + str(e))
+        logger.error('FATAL: Cant connect to Redis: ' + str(e))
         return
 
     for key, envdict in endpoint_data.iteritems():
-        '''If need to turn off OTE bot, uncomment the if key ==ote code/continue block below'''
-        # if key == "ote":
+        """If need to turn off OTE bot, uncomment the if key ==ote code/continue block below"""
+        # if key == 'ote':
         #     continue
-        if time.strftime("%a").startswith('S') and key != "prod":
-            ''' DO NOT RUN ANYTHING BUT PROD ON WEEKENDS '''
+        if time.strftime('%a').startswith('S') and key != 'prod':
+            """ DO NOT RUN ANYTHING BUT PROD ON WEEKENDS """
             continue
-        logger.debug("Checking " + key + " environment")
-        error_flag = "error_{key}".format(key=key)
+        logger.debug('Checking {} environment'.format(key))
+        error_flag = 'error_{}'.format(key)
         procedural_check([key], redis, error_flag)
 
-    logger.info("Finishing...")
+    logger.info('Finishing...')
 
 
 if __name__ == '__main__':

@@ -15,7 +15,7 @@ class APIHelper(object):
     """
     This class handles access to the DCU Abuse API
     """
-    PAYLOAD = {"close_reason": "false_positive", "closed": "true"}
+    PAYLOAD = {'close_reason': 'false_positive', 'closed': 'true'}
 
     def __init__(self, env_settings):
         self._logger = logging.getLogger(__name__)
@@ -34,9 +34,9 @@ class APIHelper(object):
             if r.status_code == 204:
                 success = True
             else:
-                self._logger.warning("Unable to close ticket {} {}".format(ticket_id, r.content))
+                self._logger.warning('Unable to close ticket {} {}'.format(ticket_id, r.content))
         except Exception as err:
-            self._logger.error("Exception while closing ticket {} {}".format(ticket_id, err.message))
+            self._logger.error('Exception while closing ticket {} {}'.format(ticket_id, err.message))
         return success
 
 
@@ -91,7 +91,7 @@ class DBHelper:
         Find all open Phishing tickets with low fraud scores, between 0 and 0.05, and send them to the API for closure
         :return: None
         """
-        logger.info("Start DB Ticket Closures")
+        logger.info('Start DB Ticket Closures')
 
         # Find all open phishing tickets with a low fraud score
         cursor = self._collection.find({'type': 'PHISHING',
@@ -108,7 +108,7 @@ class DBHelper:
                 if not self._update_actions_subdocument(ticket_id):
                     self._logger.warn('Unable to add actions sub-document to {}'.format(ticket_id))
 
-        self._logger.info("Finish DB Ticket Closures")
+        self._logger.info('Finish DB Ticket Closures')
 
 
 def read_config():

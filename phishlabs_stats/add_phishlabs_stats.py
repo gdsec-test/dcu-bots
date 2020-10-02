@@ -18,7 +18,7 @@ def time_format(dt):
     if type(dt) not in [datetime]:
         logger.error('Received unexpected type: {}'.format(type(dt)))
         return dt
-    return "%s%sZ" % (dt.strftime('%Y-%m-%dT%H:%M:%S'), dt.strftime('%z'))
+    return '%s%sZ' % (dt.strftime('%Y-%m-%dT%H:%M:%S'), dt.strftime('%z'))
 
 
 class Publisher:
@@ -81,7 +81,7 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    logger.info("Starting PhishLabs stats Retrieval")
+    logger.info('Starting PhishLabs stats Retrieval')
     rabbit = Publisher(
         host='rmq-dcu.int.godaddy.com',
         port=5672,
@@ -108,6 +108,6 @@ if __name__ == '__main__':
             data['notes'] = case.get('notes', None)
             data['resolutionStatus'] = case.get('resolutionStatus', None)
             rabbit.publish(data)
-        logger.info("PhishLabs Stats retrieved. Finished PhishLabs stats retrieval")
+        logger.info('PhishLabs Stats retrieved. Finished PhishLabs stats retrieval')
     else:
-        logger.info("No PhishLabs Stats retrieved. Finished PhishLabs stats retrieval")
+        logger.info('No PhishLabs Stats retrieved. Finished PhishLabs stats retrieval')

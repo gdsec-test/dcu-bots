@@ -22,17 +22,17 @@ class CeleryConfig:
     CELERY_IMPORTS = 'run'
     CELERYD_HIJACK_ROOT_LOGGER = False
 
-    def __init__(self, settings):
-        queue = settings.get('celery_queue')
-        task = settings.get('celery_task')
+    def __init__(self, _settings):
+        queue = _settings.get('celery_queue')
+        task = _settings.get('celery_task')
 
         self.CELERY_QUEUES = (
             Queue(queue, Exchange(queue), routing_key=queue),
         )
         self.CELERY_ROUTES = {task: {'queue': queue}}
-        self.BROKER_PASS = settings.get('broker_pass')
-        self.BROKER_USER = settings.get('broker_user')
-        self.BROKER_URL = settings.get('broker_url')
+        self.BROKER_PASS = _settings.get('broker_pass')
+        self.BROKER_USER = _settings.get('broker_user')
+        self.BROKER_URL = _settings.get('broker_url')
         self.BROKER_URL = 'amqp://' + self.BROKER_USER + ':' + urllib.quote(self.BROKER_PASS) + '@' + self.BROKER_URL
 
 
@@ -256,16 +256,16 @@ class DBHelper:
         :param list_of_snow_tickets: list of dicts containing SNOW ticket key/value pairs
         :return: None
         """
-        self._logger.info("Start DB Ticket Query/Creation")
+        self._logger.info('Start DB Ticket Query/Creation')
         for ticket in list_of_snow_tickets:
             # Check to see if ticket id exists in DB
-            if not self._collection.find_one({"ticketID": ticket.get('u_number')}):
+            if not self._collection.find_one({'ticketID': ticket.get('u_number')}):
                 self._logger.info('Creating DB ticket for: {}'.format(ticket.get('u_number')))
                 if self._kelvin:
                     self._collection.insert_one(self._convert_snow_ticket_to_mongo_record_kelvin(ticket))
                 else:
                     self._collection.insert_one(self._convert_snow_ticket_to_mongo_record_phishstory(ticket))
-        self._logger.info("Finish DB Ticket Query/Creation")
+        self._logger.info('Finish DB Ticket Query/Creation')
 
     def _send_to_middleware(self, payload):
         """
@@ -274,17 +274,17 @@ class DBHelper:
         :return:
         """
         try:
-            self._logger.info("Sending payload to Middleware {}.".format(payload.get('ticketId')))
+            self._logger.info('Sending payload to Middleware {}.'.format(payload.get('ticketId')))
             self._celery.send_task('run.process', (payload,))
         except Exception as e:
-            self._logger.error("Unable to send payload to Middleware {} {}.".format(payload.get('ticketId'), e.message))
+            self._logger.error('Unable to send payload to Middleware {} {}.'.format(payload.get('ticketId'), e.message))
 
 
 class SNOWHelper:
     """
     Get all tickets that were created in SNOW Kelvin after MongoDB was down
     """
-    HEADERS = {"Content-Type": "application/json", "Accept": "application/json"}
+    HEADERS = {'Content-Type': 'application/json', 'Accept': 'application/json'}
     # Need to provide a date and time to search from in the following format: 'YYYY-MM-DD','hh:mm:ss'
     QUERY_TIME = "'2020-08-01','0:0:0'"
 
@@ -301,7 +301,7 @@ class SNOWHelper:
         Query SNOW to get all info for tickets created since self.QUERY_TIME
         :return: list of dicts containing snow tickets
         """
-        self._logger.info("Start SNOW Ticket Retrieval")
+        self._logger.info('Start SNOW Ticket Retrieval')
         data = []
         try:
             response = requests.get(self._url, auth=self._auth, headers=self.HEADERS)
@@ -313,7 +313,7 @@ class SNOWHelper:
         except Exception as err:
             self._logger.error('Exception while retrieving tickets from SNOW API {}'.format(err.message))
         finally:
-            self._logger.info("Finish SNOW Ticket Retrieval")
+            self._logger.info('Finish SNOW Ticket Retrieval')
             return data
 
 

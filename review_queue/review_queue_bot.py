@@ -26,25 +26,26 @@ else:
 logger = logging.getLogger(__name__)
 
 
-def write_to_slack(endpoint, channel, report_count):
+def write_to_slack(_endpoint, _channel, _report_count):
     saturday = 5
     sunday = 6
 
-    if not (report_count and endpoint and channel):
+    if not (_report_count and _endpoint and _channel):
         return
 
-    if date.today().weekday() in {saturday, sunday} and report_count < 40:
+    if date.today().weekday() in {saturday, sunday} and _report_count < 40:
         return
 
-    message = 'Total number of tickets in the IRIS review queue: {}'.format(report_count) + '\n'
+    message = 'Total number of tickets in the IRIS review queue: {}'.format(_report_count) + '\n'
     payload = {'payload': json.dumps({
-        'channel': channel,
+        'channel': _channel,
         'username': 'ReviewQ BOT',
         'text': message,
         'icon_emoji': ':qbert:'
     })
     }
-    requests.post(endpoint, data=payload)
+    requests.post(_endpoint, data=payload)
+
 
 if __name__ == '__main__':
     iris_db = IrisDB(app_settings)

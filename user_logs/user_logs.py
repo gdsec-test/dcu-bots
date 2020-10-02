@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 
 
 def time_format(dt):
-    return "%s:%.3f%s" % (dt.strftime('%Y-%m-%dT%H:%M'),
-                          float("%.3f" % (dt.second + dt.microsecond / 1e6)),
+    return '%s:%.3f%s' % (dt.strftime('%Y-%m-%dT%H:%M'),
+                          float('%.3f' % (dt.second + dt.microsecond / 1e6)),
                           dt.strftime('%z'))
 
 
@@ -87,7 +87,7 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    logger.info("Starting user log retrieval")
+    logger.info('Starting user log retrieval')
     mongo = MongoHelperAPI()
     rabbit = Publisher(
         host='rmq-dcu.int.godaddy.com',
@@ -102,5 +102,5 @@ if __name__ == '__main__':
         time = data.get('timestamp')
         data['timestamp'] = time_format(time) + 'Z'
         rabbit.publish(data)
-    logger.info("Finished user log retrieval")
+    logger.info('Finished user log retrieval')
 
