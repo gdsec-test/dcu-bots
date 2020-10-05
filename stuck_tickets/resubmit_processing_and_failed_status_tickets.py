@@ -38,6 +38,15 @@ class ReturntoMiddleware:
         for ticket in self._mongo.handle().find({'phishstory_status': 'PROCESSING', 'created': {'$lte': datetime.utcnow() - timedelta(hours=24)}}):
             self._send_to_middleware(ticket)
 
+    def find_failed_enrichment_tickets(self):
+        """
+        Retrieves tickets in MongoDB that have failed enrichment and reinserts the task into Middleware queue for
+        processing.
+        """
+        for ticket in self._mongo.handle().find({'failedEnrichment': True, 'phishstory_status': 'OPEN',
+                                                 'created': {'$lte': datetime.utcnow() - timedelta(hours=48)}}):
+            self._send_to_middleware(ticket)
+
     def _send_to_middleware(self, payload):
         """
         A helper function to send Celery tasks to the Middleware Queue with the provided payload
@@ -63,7 +72,7 @@ if __name__ == '__main__':
     else:
         logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
-    logger.info("Retrieving tickets in PROCESSING status")
+    logger.info("Retrieving tickets in PROCESSING status and tickets that have Failed Enrichment")
 
     mode = os.getenv('sysenv', 'dev')
 
@@ -75,4 +84,5 @@ if __name__ == '__main__':
 
     middle = ReturntoMiddleware(settings)
     middle.find_tickets_in_processing()
+    middle.find_failed_enrichment_tickets()
     logger.info("Completed")
