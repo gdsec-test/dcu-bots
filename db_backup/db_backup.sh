@@ -44,7 +44,7 @@ mkdir -p $DEST/$DIR
 #We can even dump the entire database in one go
 
 for collection in ${COLLECTIONS[@]}; do
-    mongodump mongodb://$IP_ADDR:$PORT/$DB -u $USERNAME -p $PASSWORD --collection=$collection -o $DEST/$DIR --gzip
+    mongodump --host=$IP_ADDR --port=$PORT --db=$DB -u $USERNAME -p $PASSWORD --collection=$collection -o $DEST/$DIR --gzip
     if [ $? -ne 0 ]; then
    	msg="Backup failed for the $collection collection of $DB database"
     	echo $msg
