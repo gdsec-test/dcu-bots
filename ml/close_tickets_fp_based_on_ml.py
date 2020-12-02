@@ -80,7 +80,7 @@ class DBHelper:
                                        {'$push': {'actions': {
                                            'origin': origin_string,
                                            'timestamp': datetime.utcnow(),
-                                           'message': 'closed as false positive',
+                                           'message': 'closed as false_positive',
                                            'user': 'ml_automation'
                                        }}}, upsert=True):
             success = True
@@ -142,6 +142,7 @@ def setup_logging():
 
 
 if __name__ == '__main__':
+    raise SystemExit('Preventing unintentional execution of this script')
     """
     This script should be used whenever DCU wants to auto-close OPEN Phishing tickets in PhishStory as
     FALSE_POSITIVE whenever the fraud_score values are between 0 and 0.05

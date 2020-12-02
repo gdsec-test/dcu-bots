@@ -19,7 +19,7 @@ entry similar to:
     {
         "origin" : "SOME-HOSTNAME:/Users/someuser/dcu-bots/ml/close_tickets_fp_based_on_ml.py:APIHelper:close_incident",
         "timestamp" : ISODate("2020-09-09T16:58:01.602Z"),
-        "message" : "closed as false positive",
+        "message" : "closed as false_positive",
         "user" : "automation"
     }
 ]
