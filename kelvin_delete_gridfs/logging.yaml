@@ -1,0 +1,40 @@
+version: 1
+
+disable_existing_loggers: False
+
+formatters:
+    simple:
+        format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    detailed:
+        format: '[%(levelname)s:%(asctime)s:%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s'
+        datefmt:  '%Y-%m-%d %I:%M:%S%p'
+
+
+handlers:
+    console:
+        class: logging.StreamHandler
+        level: INFO
+        formatter: detailed
+        stream: ext://sys.stdout
+
+    info_file_handler:
+        class: logging.handlers.RotatingFileHandler
+        level: INFO
+        formatter: detailed
+        filename: /home/dcu-bots/kelvin_delete_gridfs/delete_gridfs_documents.log
+        maxBytes: 10485760 # 10MB
+        backupCount: 5
+        encoding: utf8
+
+    error_file_handler:
+        class: logging.handlers.RotatingFileHandler
+        level: ERROR
+        formatter: detailed
+        filename: /home/dcu-bots/kelvin_delete_gridfs/delete_gridfs_documents_error.log
+        maxBytes: 10485760 # 10MB
+        backupCount: 5
+        encoding: utf8
+
+root:
+    level: INFO
+    handlers: [info_file_handler, error_file_handler]
