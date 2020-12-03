@@ -1,6 +1,7 @@
 .idea/
 closed_ticket_ids.txt
 classes/
+*local_logging.yaml
 #Byte-compiled / optimized / DLL files
 
 crontab.txt

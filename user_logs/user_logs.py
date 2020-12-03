@@ -74,7 +74,7 @@ class Publisher:
 
 
 if __name__ == '__main__':
-
+    raise SystemExit('This script is deprecated in favor of user_actions')
     path = 'user_logging.yml'
     value = os.getenv('LOG_CFG', None)
     if value:
@@ -103,4 +103,3 @@ if __name__ == '__main__':
         data['timestamp'] = time_format(time) + 'Z'
         rabbit.publish(data)
     logger.info('Finished user log retrieval')
-
