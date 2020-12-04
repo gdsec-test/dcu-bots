@@ -81,7 +81,7 @@ def setup_logging():
     :return: handle to the logger
     """
     try:
-        path = './logging.yaml'
+        path = '/home/dcu-bots/kelvin_delete_gridfs/logging.yaml'
         if path and os.path.exists(path):
             with open(path, 'rt') as f:
                 lconfig = yaml.safe_load(f.read())
