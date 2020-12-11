@@ -130,6 +130,7 @@ if __name__ == '__main__':
     KEY_LAST_MODIFIED = 'last_modified'
     KEY_MESSAGE = 'message'
     KEY_ORIGIN = 'origin'
+    KEY_TICKET = 'ticket'
     KEY_TIMESTAMP = 'timestamp'
     KEY_USER = 'user'
     NUM_OF_ATTEMPTS = 6
@@ -155,7 +156,7 @@ if __name__ == '__main__':
         KEY_ACTIONS: {'$exists': True},
         KEY_LAST_MODIFIED: {'$gte': datetime.utcnow() - timedelta(hours=1)}
     }
-    db_fields_to_return = {KEY_ACTIONS: 1, KEY_ID: 0}
+    db_fields_to_return = {KEY_ACTIONS: 1, KEY_ID: 1}
 
     logger.info('Starting {}'.format(PROGRAM_NAME))
 
@@ -189,7 +190,8 @@ if __name__ == '__main__':
                     KEY_USER: action.get(KEY_USER),
                     KEY_MESSAGE: action.get(KEY_MESSAGE).replace('closed as ', ''),
                     KEY_TIMESTAMP: time_format(action.get(KEY_TIMESTAMP)),
-                    KEY_FILENAME: action.get(KEY_ORIGIN)
+                    KEY_FILENAME: action.get(KEY_ORIGIN),
+                    KEY_TICKET: item.get(KEY_ID)
                 }
                 rabbit.publish(payload)
 
