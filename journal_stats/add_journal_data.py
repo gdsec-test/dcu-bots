@@ -2,6 +2,7 @@ import logging
 import pymongo
 import pika
 import json
+import time
 import os
 import yaml
 from logging.config import dictConfig
@@ -84,6 +85,8 @@ class Publisher:
 
 
 if __name__ == '__main__':
+    NUM_OF_ATTEMPTS = 6
+    PAUSE_BETWEEN_ATTEMPTS = 15
 
     path = ''
     value = os.getenv('LOG_CFG', None)
@@ -105,7 +108,17 @@ if __name__ == '__main__':
         virtual_host='grandma',
         username=os.getenv('BROKER_USER', 'user'),
         password=os.getenv('BROKER_PASS', 'password'))
-    rabbit.connect()
+
+    # Since we see connection exceptions every couple of weeks, let's try up to 5 attempts
+    #  with a 15 second pause in between attempts
+    for attempt in range(1, NUM_OF_ATTEMPTS):
+        try:
+            rabbit.connect()
+            break
+        except Exception as e:
+            logger.error('Error connecting to RMQ: attempt {}: {}'.format(attempt, e))
+            time.sleep(PAUSE_BETWEEN_ATTEMPTS)
+
     for item in mongo.handle().find({'createdAt': {'$gte': datetime.utcnow() - timedelta(minutes=15)}}):
         data = item
         data.pop('notes', None)

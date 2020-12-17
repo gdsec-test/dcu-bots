@@ -1,6 +1,7 @@
 import logging
 import pika
 import json
+import time
 import os
 import yaml
 from logging.config import dictConfig
@@ -68,6 +69,8 @@ class Publisher:
 
 
 if __name__ == '__main__':
+    NUM_OF_ATTEMPTS = 6
+    PAUSE_BETWEEN_ATTEMPTS = 15
 
     path = ''
     value = os.getenv('LOG_CFG', None)
@@ -88,12 +91,22 @@ if __name__ == '__main__':
         virtual_host='grandma',
         username=os.getenv('BROKER_USER', 'user'),
         password=os.getenv('BROKER_PASS', 'password'))
-    rabbit.connect()
+
+    # Since we see connection exceptions every couple of weeks, let's try up to 5 attempts
+    #  with a 15 second pause in between attempts
+    for attempt in range(1, NUM_OF_ATTEMPTS):
+        try:
+            rabbit.connect()
+            break
+        except Exception as e:
+            logger.error('Error connecting to RMQ: attempt {}: {}'.format(attempt, e))
+            time.sleep(PAUSE_BETWEEN_ATTEMPTS)
+
     phishlabs_api = PhishlabsAPI()
     response = phishlabs_api.retrieve_tickets(time_format(datetime.utcnow() - timedelta(hours=1)), 'caseModify')
     if response and response.get('data'):
         for case in response.get('data'):
-            data = {}
+            data = dict()
             data['caseId'] = case.get('caseId', None)
             data['caseNumber'] = case.get('caseNumber', None)
             data['caseStatus'] = case.get('caseStatus', None)
