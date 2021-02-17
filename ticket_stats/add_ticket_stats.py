@@ -1,54 +1,34 @@
-import logging
-import pymongo
-import pika
 import json
+import logging
 import os
 import time
-import yaml
-from logging.config import dictConfig
 from datetime import datetime, timedelta
+from logging.config import dictConfig
+from ssl import create_default_context
+
+import pymongo
+import yaml
+from pika import (BlockingConnection, SSLOptions, connection, credentials,
+                  exceptions)
 
 KEYS2KEEP = ['blacklist', 'brand', 'close_reason', 'closed', 'created', 'data', 'evidence',
              'hosted_status', 'iris_created', 'metadata', 'opened', 'phishstory_status', 'proxy',
              'reporter', 'sourceDomainOrIp', 'target', 'ticketId', 'type']
 
 
-def time_format(dt):
-    """
-    Function takes in a datetime object and returns a YYYY-mm-ddTHH:MM:SS.fffZ formatted string
-    :param dt: datetime object
-    :return: string
-    """
-    if type(dt) not in [datetime]:
-        logger.error('Received unexpected type: {}'.format(type(dt)))
-        return dt
-    return '%s:%.3f%sZ' % (dt.strftime('%Y-%m-%dT%H:%M'),
-                           float('%.3f' % (dt.second + dt.microsecond / 1e6)),
-                           dt.strftime('%z'))
-
-
-def pop_dict_values(my_dict):
-    """
-    POP all fields that are NOT listed in KEYS2KEEP, from the dictionary provided,
-    so they are NOT published to Rabbit
-    :param my_dict: dictionary of the ticket's DB key:value pairs
-    :return: None
-    """
-    for key in my_dict.keys():
-        if key not in KEYS2KEEP:
-            my_dict.pop(key, None)
-
-
 class MongoHelperAPI:
     def __init__(self):
         self._logger = logging.getLogger(__name__)
-        _dbuser = os.getenv('DB_USER') or 'user'
-        _dbpass = os.getenv('DB_PASS') or 'password'
-        self._conn = pymongo.MongoClient('mongodb://{}:{}@10.22.9.209/phishstory'.format(_dbuser, _dbpass))
+        _db_user = os.getenv('DB_USER', 'user')
+        _db_pass = os.getenv('DB_PASS', 'password')
+        self._conn = pymongo.MongoClient('mongodb://{}:{}@10.22.9.209/phishstory'.format(_db_user, _db_pass))
         self._db = self._conn['phishstory']
         self._collection = self._db['incidents']
 
     def handle(self):
+        """
+        :return: Handle to mongo collection
+        """
         return self._collection
 
 
@@ -57,124 +37,192 @@ class Publisher:
     TYPE = 'direct'
     ROUTING_KEY = 'ticket-stats'
 
-    def __init__(self, host, port, virtual_host, username, password):
-        self._params = pika.connection.ConnectionParameters(
-            host=host,
-            port=port,
-            virtual_host=virtual_host,
-            credentials=pika.credentials.PlainCredentials(username, password),
-            ssl=True)
+    def __init__(self, _host, _port, _virtual_host, _username, _password):
+        """
+        :param _host:
+        :param _port:
+        :param _virtual_host:
+        :param _username:
+        :param _password:
+        :return: None
+        """
+        context = create_default_context()
+        self._params = connection.ConnectionParameters(
+            host=_host,
+            port=_port,
+            virtual_host=_virtual_host,
+            credentials=credentials.PlainCredentials(_username, _password),
+            ssl_options=SSLOptions(context, _host))
         self._conn = None
         self._channel = None
         self._logger = logging.getLogger(__name__)
 
     def connect(self):
+        """
+        :return: None
+        """
         if not self._conn or self._conn.is_closed:
-            self._conn = pika.BlockingConnection(self._params)
+            self._conn = BlockingConnection(self._params)
             self._channel = self._conn.channel()
             self._channel.exchange_declare(
                 exchange=self.EXCHANGE, exchange_type=self.TYPE, durable=True)
 
-    def _publish(self, msg):
+    def _publish(self, _msg):
+        """
+        :param _msg:
+        :return: None
+        """
         try:
             self._channel.basic_publish(
                 exchange=self.EXCHANGE,
                 routing_key=self.ROUTING_KEY,
-                body=json.dumps(msg).encode())
-            self._logger.debug('message sent: %s', msg)
+                body=json.dumps(_msg).encode())
+            self._logger.debug('message sent: %s', _msg)
         except TypeError as e:
-            self._logger.error('Failed to publish ticket {}: {}'.format(msg.get('ticketId'), e.message))
+            self._logger.error('Failed to publish ticket {}: {}'.format(_msg.get('ticketId'), e))
 
-    def publish(self, msg):
+    def publish(self, _msg):
         """
         Publish msg, reconnecting if necessary.
-        :param msg: dictionary of payload to publish
+        :param _msg:
         :return: None
         """
         try:
-            self._publish(msg)
-        except pika.exceptions.ConnectionClosed:
+            self._publish(_msg)
+        except exceptions.ConnectionClosed:
             self._logger.debug('reconnecting to queue')
             self.connect()
-            self._publish(msg)
+            self._publish(_msg)
 
     def close(self):
+        """
+        :return: None
+        """
         if self._conn and self._conn.is_open:
             self._logger.debug('closing queue connection')
             self._conn.close()
 
 
-def merge_dicts(a, b):
-    z = a.copy()
-    z.update(b)
-    return z
+def time_format(_dt):
+    """
+    Function takes in a datetime object and returns a YYYY-mm-ddTHH:MM:SS.fffZ formatted string
+    :param _dt: datetime object
+    :return: string
+    """
+    if type(_dt) not in [datetime]:
+        _logger.error('Received unexpected type: {}'.format(type(_dt)))
+        return _dt
+    return '%s:%.3f%sZ' % (_dt.strftime('%Y-%m-%dT%H:%M'),
+                           float('%.3f' % (_dt.second + _dt.microsecond / 1e6)),
+                           _dt.strftime('%z'))
+
+
+def pop_dict_values(_dict_to_pop_keys_from):
+    """
+    POP all fields that are NOT listed in KEYS2KEEP, from the dictionary provided,
+    so they are NOT published to Rabbit
+    :param _dict_to_pop_keys_from: dictionary of the ticket's DB key:value pairs
+    :return: None
+    """
+    for _key in list(_dict_to_pop_keys_from):
+        if _key not in KEYS2KEEP:
+            _dict_to_pop_keys_from.pop(_key, None)
+
+
+def merge_dicts(_dict1, _dict2):
+    """
+    :param _dict1: First dictionary
+    :param _dict2: Second dictionary
+    """
+    _merged_dict = _dict1.copy()
+    _merged_dict.update(_dict2)
+    return _merged_dict
+
+
+def setup_logging():
+    """
+    Sets up logging
+    :return: handle to the logger
+    """
+    try:
+        _path = 'logging.yaml'
+        _value = os.getenv('LOG_CFG', None)
+        if _value:
+            _path = _value
+        if _path and os.path.exists(_path):
+            with open(_path, 'rt') as f:
+                _l_config = yaml.safe_load(f.read())
+            dictConfig(_l_config)
+        else:
+            logging.basicConfig(level=logging.INFO)
+    except Exception:
+        logging.basicConfig(level=logging.INFO)
+    finally:
+        return logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
     NUM_OF_ATTEMPTS = 6
     PAUSE_BETWEEN_ATTEMPTS = 15
 
-    path = ''
-    value = os.getenv('LOG_CFG', None)
-    if value:
-        path = value
-    if os.path.exists(path):
-        with open(path, 'rt') as f:
-            lconfig = yaml.safe_load(f.read())
-        dictConfig(lconfig)
-    else:
-        logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    _logger = setup_logging()
 
-    logger.info('Starting ticket data retrieval')
-    mongo = MongoHelperAPI()
-    rabbit = Publisher(
-        host='rmq-dcu.int.godaddy.com',
-        port=5672,
-        virtual_host='grandma',
-        username=os.getenv('BROKER_USER') or 'user',
-        password=os.getenv('BROKER_PASS') or 'password')
+    _logger.info('Starting ticket data retrieval')
+    _mongo = MongoHelperAPI()
+    _rabbit = Publisher(
+        _host='rmq-dcu.int.godaddy.com',
+        _port=5672,
+        _virtual_host='grandma',
+        _username=os.getenv('BROKER_USER', 'user'),
+        _password=os.getenv('BROKER_PASS', 'password')
+    )
 
     # Since we see connection exceptions every couple of weeks, let's try up to 5 attempts
     #  with a 15 second pause in between attempts
-    for attempt in range(1, NUM_OF_ATTEMPTS):
+    for _attempt in range(1, NUM_OF_ATTEMPTS):
         try:
-            rabbit.connect()
+            _rabbit.connect()
             break
         except Exception as e:
-            logger.error('Error connecting to RMQ: attempt {}: {}'.format(attempt, e))
+            _logger.error('Error connecting to RMQ: attempt {}: {}'.format(_attempt, e))
             time.sleep(PAUSE_BETWEEN_ATTEMPTS)
 
-    for data in mongo.handle().find({'$or': [{'last_modified': {'$gte': datetime.utcnow() - timedelta(hours=1)}},
-                                             {'closed': {'$gte': datetime.utcnow() - timedelta(hours=1)}}]}):
-        pop_dict_values(data)
-        extra = data.pop('data', None)
-        if extra:
-            host_data = extra.get('domainQuery', {}).get('host')
-            if host_data:
-                brand = host_data.get('brand')
-                product = host_data.get('product')
-                if brand:
-                    data['brand'] = brand
-                if product:
-                    data['product'] = product
-            data['security_subscriptions'] = extra.get('domainQuery', {})\
+    for _data in _mongo.handle().find(
+            {'$or': [
+                {'last_modified': {'$gte': datetime.utcnow() - timedelta(hours=1)}},
+                {'closed': {'$gte': datetime.utcnow() - timedelta(hours=1)}}
+            ]}
+    ):
+        pop_dict_values(_data)
+        _extra = _data.pop('data', None)
+        if _extra:
+            _host_data = _extra.get('domainQuery', {}).get('host')
+            if _host_data:
+                _brand = _host_data.get('brand')
+                _product = _host_data.get('product')
+                if _brand:
+                    _data['brand'] = _brand
+                if _product:
+                    _data['product'] = _product
+            _data['security_subscriptions'] = _extra.get('domainQuery', {})\
                 .get('securitySubscription', {})\
                 .get('sucuriProduct', [])
 
-        meta = data.pop('metadata', None)
-        if meta:
-            merge_dicts(data, meta)
-        for time in ['created', 'closed', 'iris_created', 'opened']:
-            tdata = data.get(time)
-            if tdata:
-                data[time] = time_format(tdata)
+        _meta = _data.pop('metadata', None)
+        if _meta:
+            merge_dicts(_data, _meta)
+        for _time_type in ['created', 'closed', 'iris_created', 'opened']:
+            _time_val = _data.get(_time_type)
+            if _time_val:
+                _data[_time_type] = time_format(_time_val)
             else:
-                if time == 'created':
-                    opent = data.get('closed')
-                    data[time] = time_format(opent)
+                if _time_type == 'created':
+                    _closed_val = _data.get('closed')
+                    _data[_time_type] = time_format(_closed_val)
                 else:
                     # If the timestamp field doesnt have a value, just pop it
-                    data.pop(time, None)
-        rabbit.publish(data)
-    logger.info('Finished ticket stats retrieval')
+                    _data.pop(_time_type, None)
+
+        _rabbit.publish(_data)
+
+    _logger.info('Finished ticket stats retrieval')

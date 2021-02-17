@@ -1,13 +1,15 @@
-import logging
-import pymongo
 import json
+import logging
 import os
+import ssl
 import time
-import yaml
-
 from datetime import datetime, timedelta
 from logging.config import dictConfig
-from pika import BlockingConnection, connection, credentials, exceptions
+
+import pymongo
+import yaml
+from pika import (BlockingConnection, SSLOptions, connection, credentials,
+                  exceptions)
 
 
 def time_format(dt):
@@ -36,12 +38,12 @@ class MongoHelperAPI:
         if not _db_user or not _db_pass:
             raise Exception('DB Credentials not provided')
 
-        self._conn = pymongo.MongoClient('mongodb://{}:{}@{}/{}'.format(_db_user,
-                                                                        _db_pass,
-                                                                        self.DB_IP,
-                                                                        self.DB_NAME))
-        self._db = self._conn[self.DB_NAME]
-        self._collection = self._db[self.COLLECTION_NAME]
+        _conn = pymongo.MongoClient('mongodb://{}:{}@{}/{}'.format(_db_user,
+                                                                   _db_pass,
+                                                                   self.DB_IP,
+                                                                   self.DB_NAME))
+        _db = _conn[self.DB_NAME]
+        self._collection = _db[self.COLLECTION_NAME]
 
     def handle(self):
         return self._collection
@@ -52,8 +54,9 @@ class Publisher:
     Class to facilitate RabbitMQ functionality
     """
     EXCHANGE = 'user-logs'
-    TYPE = 'direct'
+    NUM_OF_ATTEMPTS = 6
     ROUTING_KEY = 'user-logs'
+    TYPE = 'direct'
 
     def __init__(self, host, port, virtual_host, username, password):
         """
@@ -65,12 +68,13 @@ class Publisher:
         :param password: string rmq broker password
         :return: None
         """
+        context = ssl.create_default_context()
         self._params = connection.ConnectionParameters(
             host=host,
             port=port,
             virtual_host=virtual_host,
             credentials=credentials.PlainCredentials(username, password),
-            ssl=True)
+            ssl_options=SSLOptions(context, host))
         self._conn = None
         self._channel = None
         self._logger = logging.getLogger(__name__)
@@ -84,18 +88,30 @@ class Publisher:
             self._conn = BlockingConnection(self._params)
             self._channel = self._conn.channel()
             self._channel.exchange_declare(
-                exchange=self.EXCHANGE, exchange_type=self.TYPE, durable=True)
+                exchange=self.EXCHANGE, exchange_type=self.TYPE, durable=True
+            )
 
     def _publish(self, msg):
         """
-        Private method to publish a message to rmq
+        Private method to publish a message to rmq. Ensure we have a non-None channel before
+        trying to run basic_publish, to avoid this error I noticed:
+                     AttributeError: 'NoneType' object has no attribute 'basic_publish'
         :param msg: dictionary message
         :return: None
         """
+        _cnt = 1
+        while not self._channel:
+            self.connect()
+            if not self._channel:
+                _cnt += 1
+                time.sleep(1)
+                if _cnt > self.NUM_OF_ATTEMPTS:
+                    break
+
         self._channel.basic_publish(
             exchange=self.EXCHANGE,
             routing_key=self.ROUTING_KEY,
-            body=json.dumps(msg).encode())
+            body=json.dumps(msg).encode())  # encode() returns bytes in Py3 vs string in Py2
         self._logger.debug('message sent: %s', msg)
 
     def publish(self, msg):

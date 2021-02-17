@@ -13,7 +13,7 @@ flake8:
 .PHONY: isort
 isort:
 	@echo "----- Optimizing imports -----"
-	isort -rc --atomic .
+	isort --atomic .
 
 .PHONY: tools
 tools: flake8 isort
@@ -21,5 +21,5 @@ tools: flake8 isort
 .PHONY: test
 test:
 	@echo "----- Running tests -----"
-	nosetests tests
+	nosetests malware_scanner/ phishlabs_stats/
 

@@ -1,4 +1,4 @@
-import urllib
+from urllib.parse import quote
 
 from kombu import Exchange, Queue
 
@@ -23,4 +23,4 @@ class CeleryConfig:
         self.BROKER_PASS = settings.get('broker_pass')
         self.BROKER_USER = settings.get('broker_user')
         self.BROKER_URL = settings.get('broker_url')
-        self.BROKER_URL = 'amqp://' + self.BROKER_USER + ':' + urllib.quote(self.BROKER_PASS) + '@' + self.BROKER_URL
+        self.BROKER_URL = 'amqp://{}:{}@{}'.format(self.BROKER_USER, quote(self.BROKER_PASS), self.BROKER_URL)

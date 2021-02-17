@@ -1,20 +1,19 @@
 import base64
 import logging
+import os
 
 import requests
-import os
 
 
 class PhishlabsAPI:
-
     caseType = 'Phishing'
     brand = 'GoDaddy'
     title = 'Godaddy Phish Ticket'
     url_data_api = 'https://caseapi.phishlabs.com/v1/data/cases'
     header_data_api = {'Content-type': 'application/json', 'Accept': 'application/json',
-                             'Authorization': 'Basic {}'.format(base64.b64encode('{}:{}'.format(
-                                 os.getenv('PHISHLABS_API_USERNAME', 'godaddy.api'),
-                                 os.getenv('PHISHLABS_API_PASSWORD', 'password'))))}
+                       'Authorization': 'Basic {}'.format(base64.b64encode(str.encode('{}:{}'.format(
+                           os.getenv('PHISHLABS_API_USERNAME', 'godaddy.api'),
+                           os.getenv('PHISHLABS_API_PASSWORD', 'password')))).decode())}
 
     """
     This class handles access to Phishlabs APIs
@@ -22,38 +21,37 @@ class PhishlabsAPI:
     def __init__(self):
         self._logger = logging.getLogger(__name__)
 
-    def retrieve_tickets(self, time_start, date_field):
+    def retrieve_tickets(self, _time_start, _date_field):
         """
         Retrieves all Phishlabs tickets for the given time frame (time_start to now)
-        :param time_start: Start of time frame in UTC format.
-        :type time_start: UTC formatted str
-        :param date_field: caseModify time. (Created/Closed/Modified).
-        :type date_field: str
+        :param _time_start: Start of time frame in UTC format.
+        :type _time_start: UTC formatted str
+        :param _date_field: caseModify time. (Created/Closed/Modified).
+        :type _date_field: str
         :return:
         """
 
-        if type(time_start) not in [str]:
+        if type(_time_start) not in [str]:
             self._logger.warning('Unable to retrieve PhishLabs ticket. Check time_start value.')
-            return None
+            return
 
-        payload = {
-            'dateBegin': time_start,
+        _payload = {
+            'dateBegin': _time_start,
             'caseType': self.caseType,
             'brand': self.brand,
             'title': self.title,
-            'dateField': date_field,
+            'dateField': _date_field,
             'format': 'json'
         }
 
-        data = None
+        _data = None
         try:
-            response = requests.get(self.url_data_api, headers=self.header_data_api, params=payload)
-            if response.status_code == 200:
-                data = response.json()
+            _response = requests.get(self.url_data_api, headers=self.header_data_api, params=_payload)
+            if _response.status_code == 200:
+                _data = _response.json()
             else:
-                self._logger.warning('Unable to retrieve PhishLabs ticket {}'.format(response.content))
-        except Exception as e:
-            self._logger.error('Exception while retrieving PhishLabs ticket {}'.format(e.message))
+                self._logger.warning('Unable to retrieve PhishLabs ticket {}'.format(_response.content))
+        except Exception as _e:
+            self._logger.error('Exception while retrieving PhishLabs ticket {}'.format(_e))
         finally:
-            return data
-
+            return _data

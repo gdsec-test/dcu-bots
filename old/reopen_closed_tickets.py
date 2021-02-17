@@ -1,127 +1,158 @@
 import os
-from ConfigParser import SafeConfigParser
+from configparser import ConfigParser
 
 import requests
 from pymongo import MongoClient
 
 
-def open_ticket_in_mongo(open_snow_ticket):
-    tix_num, sys_id = open_snow_ticket
+def open_ticket_in_mongo(_open_snow_ticket, _collection):
+    """
+    :param _open_snow_ticket:
+    :param _collection:
+    :return: boolean
+    """
+    _tix_num, _sys_id = _open_snow_ticket  # _open_snow_ticket is a tuple
     # Setting the phishstory_status field to OPEN and then removing the close_reason and closed fields altogether
     try:
-        collection.update_one({'_id': tix_num}, {'$set': {'phishstory_status': 'OPEN'}}, upsert=False)
-        collection.update_one({'_id': tix_num}, {'$unset': {'close_reason': 1, 'closed': 1}}, upsert=False)
+        _collection.update_one({'_id': _tix_num}, {'$set': {'phishstory_status': 'OPEN'}}, upsert=False)
+        _collection.update_one({'_id': _tix_num}, {'$unset': {'close_reason': 1, 'closed': 1}}, upsert=False)
         return True
-    except Exception as e:
-        print('MONGO Exception: {}'.format(e.message))
+    except Exception as _e:
+        print('MONGO Exception: {}'.format(_e))
         return False
 
 
-def open_snow_tickets(ticket):
-    tix_num, sys_id = ticket
-    url = 'https://godaddy.service-now.com/api/now/table/u_dcu_ticket/{}'.format(sys_id)
+def open_snow_tickets(_open_snow_url, _ticket, _headers):
+    """
+    :param _open_snow_url:
+    :param _ticket:
+    :param _headers:
+    :return: boolean
+    """
+    _tix_num, _sys_id = _ticket  # _ticket is a tuple
+    _url = '{}/{}'.format(_open_snow_url, _sys_id)
     # DO NOT change the syntax of message below, as the function above
-    message = 'Opening ticket {}'.format(tix_num)
-    my_data = '{"u_closed":"false", "u_closed_date":""}'
+    _message = 'Opening ticket {}'.format(_tix_num)
+    _my_data = '{"u_closed":"false", "u_closed_date":""}'
     try:
-        snow_close_response = requests.put(url,
-                                           auth=(settings.get('snow_user'), settings.get('snow_pass')),
-                                           headers=headers,
-                                           data=my_data)
-        if snow_close_response.status_code != 200:
-            message = 'Status:', snow_close_response.status_code,\
-                      'Headers:', snow_close_response.headers,\
-                      'Error Response:', snow_close_response.json()
-            print(message)
+        _snow_open_response = requests.put(_url,
+                                           auth=(_settings.get('snow_user'), _settings.get('snow_pass')),
+                                           headers=_headers,
+                                           data=_my_data)
+        if _snow_open_response.status_code != 200:
+            _message = 'Status:', _snow_open_response.status_code, \
+                       'Headers:', _snow_open_response.headers, \
+                       'Error Response:', _snow_open_response.json()
+            print(_message)
             return False
-        print(message)
+        print(_message)
         return True
-    except Exception as e:
-        print('SNOW Exception: {}'.format(e.message))
+    except Exception as _e:
+        print('SNOW Exception: {}'.format(_e))
         return False
 
 
-def get_all_specified_snow_tickets(specific_snow_ids):
-    all_numbers_list = []
-    for snow_id in specific_snow_ids:
-        all_numbers_list.append('u_number%3D{}'.format(snow_id))
+def get_all_specified_snow_tickets(_snow_query_url, _specific_snow_ids, _headers):
+    """
+    :param _snow_query_url:
+    :param _specific_snow_ids:
+    :param _headers:
+    :return: dict
+    """
+    _all_numbers_list = []
+    for _snow_id in _specific_snow_ids:
+        _all_numbers_list.append('u_number%3D{}'.format(_snow_id))
 
-    all_numbers_string = '^OR'.join(all_numbers_list)
-    snow_query_string = 'https://godaddy.service-now.com/api/now/table/u_dcu_ticket?sysparm_limit=240000&sysparm_fields=u_number,sys_id&sysparm_query={}'.format(all_numbers_string)
+    _all_numbers_string = '^OR'.join(_all_numbers_list)
+    _snow_query_string = '{}{}'.format(_snow_query_url, _all_numbers_string)
     # Do the HTTP request to SNOW getting all OPEN ticket records
-    response = requests.get(snow_query_string,
-                            auth=(settings.get('snow_user'), settings.get('snow_pass')),
-                            headers=headers)
+    _response = requests.get(_snow_query_string,
+                             auth=(_settings.get('snow_user'), _settings.get('snow_pass')),
+                             headers=_headers)
 
     # Check for HTTP response codes from SNOW for other than 200
-    if response.status_code != 200:
-        print('Status:', response.status_code,
-              'Headers:', response.headers,
-              'Error Response:', response.json())
+    if _response.status_code != 200:
+        print('Status:', _response.status_code,
+              'Headers:', _response.headers,
+              'Error Response:', _response.json())
         exit()
 
     # Decode the SNOW JSON response into a dictionary and use the data
-    return response.json()
+    return _response.json()
 
 
-def make_snow_sysid_number_list(specific_snow_ids):
-    snow_sysid_number_list = []
+def make_snow_sysid_number_list(_snow_query_url, _specific_snow_ids, _headers):
+    """
+    :param _snow_query_url:
+    :param _specific_snow_ids:
+    :param _headers:
+    :return: list to ticket tuples which look like
+    [{
+        u 'sys_id': u '01eb3e1437c76a00362896d543990e1a',
+        u 'u_number': u 'DCU000024037'
+    }, {
+        u 'sys_id': u '034da51e2bc3a24054a41bc5a8da15b1',
+        u 'u_number': u 'DCU000024766'
+    }]
+    """
+    _snow_sys_id_number_list = []
+    _snow_records = get_all_specified_snow_tickets(_snow_query_url, _specific_snow_ids, _headers)['result']
+    for _snow_id in _snow_records:
+        _snow_tuple = (_snow_id['u_number'], _snow_id['sys_id'])
+        _snow_sys_id_number_list.append(_snow_tuple)
+    return _snow_sys_id_number_list
 
-    # Structure for snow_records looks like:
-    # [{
-    #     u 'sys_id': u '01eb3e1437c76a00362896d543990e1a',
-    #     u 'u_number': u 'DCU000024037'
-    # }, {
-    #     u 'sys_id': u '034da51e2bc3a24054a41bc5a8da15b1',
-    #     u 'u_number': u 'DCU000024766'
-    # }]
-    snow_records = get_all_specified_snow_tickets(specific_snow_ids)['result']
-    for snow_id in snow_records:
-        snow_tuple = (snow_id['u_number'], snow_id['sys_id'])
-        snow_sysid_number_list.append(snow_tuple)
-    return snow_sysid_number_list
+
+def read_config(_env):
+    """
+    Reads the configuration ini file for the env specific settings
+    :param _env: string representing run environment
+    :return: dict of configuration settings for the env
+    """
+    _dir_path = os.path.dirname(os.path.realpath(__file__))
+    _config_p = ConfigParser()
+    _config_p.read('{}/missed_tickets_settings.ini'.format(_dir_path))
+    return dict(_config_p.items(_env))
 
 
 if __name__ == '__main__':
-    mode = os.getenv('sysenv') or 'dev'
-    # mode = 'prod'
-
-    configp = SafeConfigParser()
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    configp.read('{}/missed_tickets_settings.ini'.format(dir_path))
-
-    settings = dict(configp.items(mode))
+    _settings = read_config(os.getenv('sysenv', 'dev'))
 
     # creating pymongo settings
-    client = MongoClient(settings.get('db_url'))
+    _client = MongoClient(_settings.get('db_url'))
 
     # authenticating to client
-    client[settings.get('db')].authenticate(settings.get('db_user'),
-                                            settings.get('db_pass'),
-                                            mechanism=settings.get('db_auth_mechanism'))
+    _client[_settings.get('db')].authenticate(_settings.get('db_user'),
+                                              _settings.get('db_pass'),
+                                              mechanism=_settings.get('db_auth_mechanism'))
 
     # getting the mongo db
-    db = client[settings.get('db')]
+    _db = _client[_settings.get('db')]
 
     # getting the collection
-    collection = db.incidents
+    _collection = _db.incidents
 
-    # Set proper SNOW request headers headers
-    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    # Set proper SNOW request headers
+    _headers = {"Content-Type": "application/json", "Accept": "application/json"}
 
     # Read the list of SNOW ticket ids to open
-    filename = 'closed_ticket_ids.txt'
+    _filename = 'closed_ticket_ids.txt'
 
     # Structure of closed_snow_ticket_ids looks like:
     # ['DCU000025036', 'DCU000024953']
-    closed_snow_ticket_ids = [line.strip() for line in open(filename)]
+    _closed_snow_ticket_ids = [_line.strip() for _line in open(_filename)]
 
     # Structure of specific_closed_tickets looks like:
-    # [(u 'DCU000024037', u '01eb3e1437c76a00362896d543990e1a'),(u 'DCU000024766', u '034da51e2bc3a24054a41bc5a8da15b1')]
-    specific_closed_tickets = make_snow_sysid_number_list(closed_snow_ticket_ids)
+    # [(u 'DCU000024037', u '01eb3e1437c76a00362896d543990e1a'),
+    #  (u 'DCU000024766', u '034da51e2bc3a24054a41bc5a8da15b1')]
+    _specific_closed_tickets = make_snow_sysid_number_list(_settings.get('snow_url_query'),
+                                                           _closed_snow_ticket_ids,
+                                                           _headers)
 
-    for snow_ticket in specific_closed_tickets:
-        if not open_snow_tickets(snow_ticket):
-            print('ERROR OPENING SNOW TICKET: {}'.format(snow_ticket))
-        if not open_ticket_in_mongo(snow_ticket):
-            print('ERROR OPENING MONGO TICKET: {}'.format(snow_ticket))
+    for _snow_ticket in _specific_closed_tickets:
+        if not open_snow_tickets(_settings.get('snow_url_open'),
+                                 _snow_ticket,
+                                 _headers):
+            print('ERROR OPENING SNOW TICKET: {}'.format(_snow_ticket))
+        if not open_ticket_in_mongo(_snow_ticket, _collection):
+            print('ERROR OPENING MONGO TICKET: {}'.format(_snow_ticket))

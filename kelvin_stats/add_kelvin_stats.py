@@ -1,38 +1,30 @@
-import logging
-import pymongo
-import pika
 import json
+import logging
 import os
 import time
-import yaml
-from logging.config import dictConfig
 from datetime import datetime, timedelta
+from logging.config import dictConfig
+from ssl import create_default_context
 
-
-def time_format(dt):
-    """
-    Function takes in a datetime object and returns a YYYY-mm-ddTHH:MM:SS.fffZ formatted string
-    :param dt: datetime object
-    :return: string
-    """
-    if type(dt) not in [datetime]:
-        logger.error('Received unexpected type: {}'.format(type(dt)))
-        return dt
-    return '%s:%.3f%sZ' % (dt.strftime('%Y-%m-%dT%H:%M'),
-                           float('%.3f' % (dt.second + dt.microsecond / 1e6)),
-                           dt.strftime('%z'))
+import pymongo
+import yaml
+from pika import (BlockingConnection, SSLOptions, connection, credentials,
+                  exceptions)
 
 
 class MongoHelperAPI:
     def __init__(self):
         self._logger = logging.getLogger(__name__)
-        _dbuser = os.getenv('DB_USER', 'user')
-        _dbpass = os.getenv('DB_PASS', 'password')
-        self._conn = pymongo.MongoClient('mongodb://{}:{}@10.22.9.209/dcu_kelvin'.format(_dbuser, _dbpass))
+        _db_user = os.getenv('DB_USER', 'user')
+        _db_pass = os.getenv('DB_PASS', 'password')
+        self._conn = pymongo.MongoClient('mongodb://{}:{}@10.22.9.209/dcu_kelvin'.format(_db_user, _db_pass))
         self._db = self._conn['dcu_kelvin']
         self._collection = self._db['incidents']
 
     def handle(self):
+        """
+        :return: Handle to mongo collection
+        """
         return self._collection
 
 
@@ -41,181 +33,255 @@ class Publisher:
     TYPE = 'direct'
     ROUTING_KEY = 'kelvin-stats'
 
-    def __init__(self, host, port, virtual_host, username, password):
-        self._params = pika.connection.ConnectionParameters(
-            host=host,
-            port=port,
-            virtual_host=virtual_host,
-            credentials=pika.credentials.PlainCredentials(username, password),
-            ssl=True)
+    def __init__(self, _host, _port, _virtual_host, _username, _password):
+        """
+        :param _host:
+        :param _port:
+        :param _virtual_host:
+        :param _username:
+        :param _password:
+        :return: None
+        """
+        context = create_default_context()
+        self._params = connection.ConnectionParameters(
+            host=_host,
+            port=_port,
+            virtual_host=_virtual_host,
+            credentials=credentials.PlainCredentials(_username, _password),
+            ssl_options=SSLOptions(context, _host))
         self._conn = None
         self._channel = None
         self._logger = logging.getLogger(__name__)
 
     def connect(self):
+        """
+        :return: None
+        """
         if not self._conn or self._conn.is_closed:
-            self._conn = pika.BlockingConnection(self._params)
+            self._conn = BlockingConnection(self._params)
             self._channel = self._conn.channel()
             self._channel.exchange_declare(
                 exchange=self.EXCHANGE, exchange_type=self.TYPE, durable=True)
 
-    def _publish(self, msg):
+    def _publish(self, _msg):
+        """
+        :param _msg:
+        :return: None
+        """
         self._channel.basic_publish(
             exchange=self.EXCHANGE,
             routing_key=self.ROUTING_KEY,
-            body=json.dumps(msg).encode())
-        self._logger.debug('message sent: %s', msg)
+            body=json.dumps(_msg).encode())
+        self._logger.debug('message sent: %s', _msg)
 
-    def publish(self, msg):
-        """Publish msg, reconnecting if necessary."""
-
+    def publish(self, _msg):
+        """
+        Publish msg, reconnecting if necessary.
+        :param _msg:
+        :return: None
+        """
         try:
-            self._publish(msg)
-        except pika.exceptions.ConnectionClosed:
+            self._publish(_msg)
+        except exceptions.ConnectionClosed:
             self._logger.debug('reconnecting to queue')
             self.connect()
-            self._publish(msg)
+            self._publish(_msg)
 
     def close(self):
+        """
+        :return: None
+        """
         if self._conn and self._conn.is_open:
             self._logger.debug('closing queue connection')
             self._conn.close()
 
 
-def merge_dicts(a, b):
-    z = a.copy()
-    z.update(b)
-    return z
+def time_format(_dt, _logger):
+    """
+    Function takes in a datetime object and returns a YYYY-mm-ddTHH:MM:SS.fffZ formatted string
+    :param _dt: datetime object
+    :param _logger: handle to logger
+    :return: string
+    """
+    if type(_dt) not in [datetime]:
+        _logger.error('Received unexpected type: {}'.format(type(_dt)))
+        return _dt
+    return '%s:%.3f%sZ' % (_dt.strftime('%Y-%m-%dT%H:%M'),
+                           float('%.3f' % (_dt.second + _dt.microsecond / 1e6)),
+                           _dt.strftime('%z'))
+
+
+def merge_dicts(_dict1, _dict2):
+    """
+    :param _dict1: First dictionary
+    :param _dict2: Second dictionary
+    """
+    _merged_dict = _dict1.copy()
+    _merged_dict.update(_dict2)
+    return _merged_dict
+
+
+def clean_pop(_dict, _list_of_keys_to_pop):
+    """
+    Function to pop all keys from a dict
+    :param _dict: dictionary to pop keys from
+    :param _list_of_keys_to_pop: list of string key names
+    :return: None
+    """
+    for _key in _list_of_keys_to_pop:
+        _dict.pop(_key, None)
+
+
+def assign_keys(_dict_to_assign_to, _dict_keys_exist_in, _dict_of_keys_to_assign):
+    """
+    Given a list of keys which may or may not exist in a dict, assign all the key/value
+    pairs that do exist into another dict
+    :param _dict_to_assign_to: dictionary to add new key/value pairs to
+    :param _dict_keys_exist_in: dictionary possibly containing list of keys
+    :param _dict_of_keys_to_assign: dict of string key names {key_to_lookup_in_dict_keys_exist_in: key_to_assign}
+    """
+    for _lookup_key, _assign_key in _dict_of_keys_to_assign.items():
+        _val = _dict_keys_exist_in.get(_lookup_key)
+        if _val:
+            if 'date' in _assign_key:
+                if 'T' not in _val:
+                    _val = '{}T00:00:00Z'.format(_val)
+            _dict_to_assign_to[_assign_key] = _val
+
+
+def setup_logging():
+    """
+    Sets up logging
+    :return: handle to the logger
+    """
+    try:
+        _path = 'logging.yaml'
+        _value = os.getenv('LOG_CFG', None)
+        if _value:
+            _path = _value
+        if _path and os.path.exists(_path):
+            with open(_path, 'rt') as f:
+                _l_config = yaml.safe_load(f.read())
+            dictConfig(_l_config)
+        else:
+            logging.basicConfig(level=logging.INFO)
+    except Exception:
+        logging.basicConfig(level=logging.INFO)
+    finally:
+        return logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
     NUM_OF_ATTEMPTS = 6
     PAUSE_BETWEEN_ATTEMPTS = 15
 
-    path = ''
-    value = os.getenv('LOG_CFG', None)
-    if value:
-        path = value
-    if os.path.exists(path):
-        with open(path, 'rt') as f:
-            lconfig = yaml.safe_load(f.read())
-        dictConfig(lconfig)
-    else:
-        logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    _logger = setup_logging()
 
-    logger.info('Starting Kelvin stats retrieval')
-    mongo = MongoHelperAPI()
-    rabbit = Publisher(
-        host='rmq-dcu.int.godaddy.com',
-        port=5672,
-        virtual_host='grandma',
-        username=os.getenv('BROKER_USER', 'user'),
-        password=os.getenv('BROKER_PASS', 'password'))
+    _logger.info('Starting Kelvin stats retrieval')
+    _mongo = MongoHelperAPI()
+    _rabbit = Publisher(
+        _host='rmq-dcu.int.godaddy.com',
+        _port=5672,
+        _virtual_host='grandma',
+        _username=os.getenv('BROKER_USER', 'user'),
+        _password=os.getenv('BROKER_PASS', 'password')
+    )
 
     # Since we see connection exceptions every couple of weeks, let's try up to 5 attempts
     #  with a 15 second pause in between attempts
-    for attempt in range(1, NUM_OF_ATTEMPTS):
+    for _attempt in range(1, NUM_OF_ATTEMPTS):
         try:
-            rabbit.connect()
+            _rabbit.connect()
             break
         except Exception as e:
-            logger.error('Error connecting to RMQ: attempt {}: {}'.format(attempt, e))
+            _logger.error('Error connecting to RMQ: attempt {}: {}'.format(_attempt, e))
             time.sleep(PAUSE_BETWEEN_ATTEMPTS)
 
-    for data in mongo.handle().find({'$or': [{'lastModified': {'$gte': datetime.utcnow() - timedelta(hours=1)}},
-                                             {'closedAt': {'$gte': datetime.utcnow() - timedelta(hours=1)}}]}):
-        data.pop('_id', None)
-        data.pop('ticketCategory', None)
-        data.pop('source', None)
-        data.pop('sourceDomainOrIP', None)
-        data.pop('info', None)
-        data.pop('target', None)
-        data.pop('reporterEmail', None)
-        data.pop('lastModified', None)
-        data.pop('archiveCompleted', None)
-        data.pop('fileInfo', None)
-        data.pop('reportFileID', None)
-        data.pop('ncmecReportID', None)
-        data.pop('userGenHoldReason', None)
-        data.pop('userGenHoldUntil', None)
-        data.pop('messageID', None)
-        data.pop('notified', None)
+    for _data in _mongo.handle().find(
+            {
+                '$or': [
+                    {
+                        'lastModified': {
+                            '$gte': datetime.utcnow() - timedelta(hours=10)
+                        }
+                    },
+                    {
+                        'closedAt': {
+                            '$gte': datetime.utcnow() - timedelta(hours=10)
+                        }
+                    }
+                ]
+            }
+    ):
 
-        domain_brand_data = data.pop('domain', None)
-        if domain_brand_data:
-            domain_brand = domain_brand_data.get('brand')
-            domain_registrar = domain_brand_data.get('registrarName')
-            domain_create_date = domain_brand_data.get('domainCreateDate')
+        clean_pop(_data, ['_id', 'archiveCompleted', 'fileInfo', 'info', 'lastModified', 'messageID', 'ncmecReportID',
+                          'notified', 'reporterEmail', 'reportFileID', 'source', 'sourceDomainOrIP', 'target',
+                          'ticketCategory', 'userGenHoldReason', 'userGenHoldUntil'])
 
-            if domain_brand:
-                data['domain_brand'] = domain_brand
-            if domain_registrar:
-                data['domain_registrar'] = domain_registrar
-            if domain_create_date:
-                if 'T' not in domain_create_date:
-                    domain_create_date += 'T00:00:00Z'
-                data['domain_create_date'] = domain_create_date
+        _domain_brand_data = _data.pop('domain', None)
+        if _domain_brand_data:
+            assign_keys(
+                _data,
+                _domain_brand_data,
+                {
+                    'brand': 'domain_brand',
+                    'registrarName': 'domain_registrar',
+                    'domainCreateDate': 'domain_create_date'
+                }
+            )
 
-        hosting_brand_data = data.pop('hosting', None)
-        if hosting_brand_data:
-            hosting_brand = hosting_brand_data.get('brand')
-            hosting_company_name = hosting_brand_data.get('hostingCompanyName')
-            hosting_ip = hosting_brand_data.get('IP')
+        _hosting_brand_data = _data.pop('hosting', None)
+        if _hosting_brand_data:
+            assign_keys(
+                _data,
+                _hosting_brand_data,
+                {
+                    'brand': 'hosting_brand',
+                    'hostingCompanyName': 'hosting_company_name',
+                    'IP': 'hosting_ip'
+                }
+            )
 
-            if hosting_brand:
-                data['hosting_brand'] = hosting_brand
-            if hosting_company_name:
-                data['hosting_company_name'] = hosting_company_name
-            if hosting_ip:
-                data['hosting_ip'] = hosting_ip
+        _cmap_data = _data.pop('data', None)
+        if _cmap_data:
+            _host_data = _cmap_data.get('domainQuery', {}).get('host')
 
-        cmap_data = data.pop('data', None)
-        if cmap_data:
-            host_data = cmap_data.get('domainQuery', {}).get('host')
+            if _host_data:
+                assign_keys(
+                    _data,
+                    _host_data,
+                    {
+                        'product': 'host_product',
+                        'dataCenter': 'host_data_center',
+                        'hostname': 'hostname',
+                        'mwpId': 'mwp_id',
+                        'guid': 'host_guid',
+                        'os': 'host_os'
+                    }
+                )
 
-            if host_data:
-                host_product = host_data.get('product')
-                host_data_center = host_data.get('dataCenter')
-                hostname = host_data.get('hostname')
-                mwp_id = host_data.get('mwpId')
-                host_guid = host_data.get('guid')
-                host_os = host_data.get('os')
+            _shopper_data = _cmap_data.get('domainQuery', {}).get('shopperInfo')
+            if _shopper_data:
+                assign_keys(
+                    _data,
+                    _shopper_data,
+                    {
+                        'shopperCity': 'shopper_city',
+                        'shopperState': 'shopper_state',
+                        'shopperCountry': 'shopper_country'
+                    }
+                )
 
-                if host_product:
-                    data['host_product'] = host_product
-                if host_data_center:
-                    data['host_data_center'] = host_data_center
-                if hostname:
-                    data['hostname'] = hostname
-                if mwp_id:
-                    data['mwp_id'] = mwp_id
-                if host_guid:
-                    data['host_guid'] = host_guid
-                if host_os:
-                    data['host_os'] = host_os
+        _meta = _data.pop('metadata', None)
+        if _meta:
+            _meta.pop('iris_id')
+            _data = merge_dicts(_data, _meta)
 
-            shopper_data = cmap_data.get('domainQuery', {}).get('shopperInfo')
-            if shopper_data:
-                shopper_city = shopper_data.get('shopperCity')
-                shopper_state = shopper_data.get('shopperState')
-                shopper_country = shopper_data.get('shopperCountry')
+        for _time_types in ['createdAt', 'closedAt', 'iris_created']:
+            _time_type = _data.get(_time_types)
+            if _time_type:
+                _data[_time_types] = time_format(_time_type, _logger)
 
-                if shopper_city:
-                    data['shopper_city'] = shopper_city
-                if shopper_state:
-                    data['shopper_state'] = shopper_state
-                if shopper_country:
-                    data['shopper_country'] = shopper_country
+        _rabbit.publish(_data)
 
-        meta = data.pop('metadata', None)
-
-        if meta:
-            meta.pop('iris_id')
-            data = merge_dicts(data, meta)
-        for time in ['createdAt', 'closedAt', 'iris_created']:
-            tdata = data.get(time)
-            if tdata:
-                data[time] = time_format(tdata)
-        rabbit.publish(data)
-    logger.info('Finished Kelvin stats retrieval')
+    _logger.info('Finished Kelvin stats retrieval')

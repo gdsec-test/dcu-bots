@@ -1,14 +1,13 @@
 import logging
 import os
-import requests
 import socket
-import yaml
-
+from configparser import ConfigParser
 from datetime import datetime
 from logging.config import dictConfig
-from pymongo import MongoClient
 
-from ConfigParser import SafeConfigParser
+import requests
+import yaml
+from pymongo import MongoClient
 
 
 class APIHelper(object):
@@ -17,48 +16,54 @@ class APIHelper(object):
     """
     PAYLOAD = {'close_reason': 'false_positive', 'closed': 'true'}
 
-    def __init__(self, env_settings):
+    def __init__(self, _env_settings):
+        """
+        :param _env_settings:
+        :return: None
+        """
         self._logger = logging.getLogger(__name__)
-        self._url = env_settings.get('abuse_api')
-        self._header = {'Authorization': env_settings.get('dcu_middleware_jwt')}
+        self._url = _env_settings.get('abuse_api')
+        self._header = {'Authorization': _env_settings.get('dcu_middleware_jwt')}
 
-    def close_incident(self, ticket_id):
+    def close_incident(self, _ticket_id):
         """
         Closes out the provided ticket id as FP using the API PATCH endpoint
-        :param ticket_id:
+        :param _ticket_id:
         :return: boolean
         """
-        success = False
+        _success = False
         try:
-            r = requests.patch('{}/{}'.format(self._url, ticket_id), json=self.PAYLOAD, headers=self._header)
-            if r.status_code == 204:
-                success = True
+            _r = requests.patch('{}/{}'.format(self._url, _ticket_id),
+                                json=self.PAYLOAD,
+                                headers=self._header)
+            if _r.status_code == 204:
+                _success = True
             else:
-                self._logger.warning('Unable to close ticket {} {}'.format(ticket_id, r.content))
-        except Exception as err:
-            self._logger.error('Exception while closing ticket {} {}'.format(ticket_id, err.message))
-        return success
+                self._logger.warning('Unable to close ticket {} {}'.format(_ticket_id, _r.content))
+        except Exception as _e:
+            self._logger.error('Exception while closing ticket {} {}'.format(_ticket_id, _e))
+        return _success
 
 
 class DBHelper:
     """
     DB helper class specific to the PhishStory databases
     """
-    def __init__(self, env_settings, api_handle):
+    def __init__(self, _env_settings, _api_handle):
         """
-        :param env_settings: dict from ini settings file
-        :param api_handle: handle to the APIHelper class
+        :param _env_settings: dict from ini settings file
+        :param _api_handle: handle to the APIHelper class
         :return: boolean
         """
         self._logger = logging.getLogger(__name__)
-        client = MongoClient(env_settings.get('db_url'))
-        client[env_settings.get('db')].authenticate(env_settings.get('db_user'),
-                                                    env_settings.get('db_pass'),
-                                                    mechanism=env_settings.get('db_auth_mechanism'))
-        db = client[settings.get('db')]
-        self._api_handle = api_handle
-        self._collection = db.incidents
-        self._client = client
+        _client = MongoClient(_env_settings.get('db_url'))
+        _client[_env_settings.get('db')].authenticate(_env_settings.get('db_user'),
+                                                      _env_settings.get('db_pass'),
+                                                      mechanism=_env_settings.get('db_auth_mechanism'))
+        _db = _client[settings.get('db')]
+        self._api_handle = _api_handle
+        self._collection = _db.incidents
+        self._client = _client
 
     def close_connection(self):
         """
@@ -67,46 +72,56 @@ class DBHelper:
         """
         self._client.close()
 
-    def _update_actions_subdocument(self, ticket_id):
+    def _update_actions_sub_document(self, _ticket_id):
         """
-        Update the database record with a new actions subdocument and entry
-        :param ticket_id: string ticket id for the database record to modify
+        Update the database record with a new actions sub-document and entry
+        :param _ticket_id: string ticket id for the database record to modify
         :return: boolean
         """
-        success = False
+        _success = False
         # *** HARDCODED the method which performs the ticket closure ***
         origin_string = '{}:{}:APIHelper:close_incident'.format(socket.gethostname(), __file__)
-        if self._collection.update_one({'_id': ticket_id},
-                                       {'$push': {'actions': {
-                                           'origin': origin_string,
-                                           'timestamp': datetime.utcnow(),
-                                           'message': 'closed as false_positive',
-                                           'user': 'ml_automation'
-                                       }}}, upsert=True):
-            success = True
-        return success
+        if self._collection.update_one(
+                {'_id': _ticket_id},
+                {
+                    '$push': {
+                        'actions': {
+                            'origin': origin_string,
+                            'timestamp': datetime.utcnow(),
+                            'message': 'closed as false_positive',
+                            'user': 'ml_automation'
+                        }
+                    }
+                },
+                upsert=True):
+            _success = True
+        return _success
 
     def close_tickets_with_low_fraud_scores(self):
         """
         Find all open Phishing tickets with low fraud scores, between 0 and 0.05, and send them to the API for closure
         :return: None
         """
-        logger.info('Start DB Ticket Closures')
+        self._logger.info('Start DB Ticket Closures')
 
         # Find all open phishing tickets with a low fraud score
-        cursor = self._collection.find({'type': 'PHISHING',
-                                        'phishstory_status': 'OPEN',
-                                        '$and': [
-                                            {'fraud_score': {'$gte': 0.0}},
-                                            {'fraud_score': {'$lte': 0.05}}
-                                        ]})
+        _cursor = self._collection.find(
+            {
+                'type': 'PHISHING',
+                'phishstory_status': 'OPEN',
+                '$and': [
+                    {'fraud_score': {'$gte': 0.0}},
+                    {'fraud_score': {'$lte': 0.05}}
+                ]
+            }
+        )
 
-        for ticket in cursor:
-            ticket_id = ticket.get('ticketId')
-            self._logger.info('Closing {} via API'.format(ticket_id))
-            if self._api_handle.close_incident(ticket_id):
-                if not self._update_actions_subdocument(ticket_id):
-                    self._logger.warn('Unable to add actions sub-document to {}'.format(ticket_id))
+        for _ticket in _cursor:
+            _ticket_id = _ticket.get('ticketId')
+            self._logger.info('Closing {} via API'.format(_ticket_id))
+            if self._api_handle.close_incident(_ticket_id):
+                if not self._update_actions_sub_document(_ticket_id):
+                    self._logger.warning('Unable to add actions sub-document to {}'.format(_ticket_id))
 
         self._logger.info('Finish DB Ticket Closures')
 
@@ -116,10 +131,10 @@ def read_config():
     Reads the configuration ini file for the env specific settings
     :return: dict of configuration settings for the env
     """
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    config_p = SafeConfigParser()
-    config_p.read('{}/connection_settings.ini'.format(dir_path))
-    return dict(config_p.items(os.getenv('sysenv', 'dev')))
+    _dir_path = os.path.dirname(os.path.realpath(__file__))
+    _config_p = ConfigParser()
+    _config_p.read('{}/connection_settings.ini'.format(_dir_path))
+    return dict(_config_p.items(os.getenv('sysenv', 'dev')))
 
 
 def setup_logging():
@@ -128,11 +143,11 @@ def setup_logging():
     :return: handle to the logger
     """
     try:
-        path = '/home/dcu-bots/ml/logging.yaml'
-        if path and os.path.exists(path):
-            with open(path, 'rt') as f:
-                l_config = yaml.safe_load(f.read())
-            dictConfig(l_config)
+        _path = '/home/dcu-bots/ml/logging.yaml'
+        if _path and os.path.exists(_path):
+            with open(_path, 'rt') as f:
+                _l_config = yaml.safe_load(f.read())
+            dictConfig(_l_config)
         else:
             logging.basicConfig(level=logging.INFO)
     except Exception:
@@ -166,7 +181,7 @@ if __name__ == '__main__':
         db_client.close_tickets_with_low_fraud_scores()
 
     except Exception as e:
-        logger.fatal(e.message)
+        logger.fatal(e)
     finally:
         if db_client:
             db_client.close_connection()
