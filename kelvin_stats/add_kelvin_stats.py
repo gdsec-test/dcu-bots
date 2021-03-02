@@ -274,7 +274,7 @@ if __name__ == '__main__':
 
         _meta = _data.pop('metadata', None)
         if _meta:
-            _meta.pop('iris_id')
+            _meta.pop('iris_id', None)
             _data = merge_dicts(_data, _meta)
 
         for _time_types in ['createdAt', 'closedAt', 'iris_created']:
