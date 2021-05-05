@@ -243,7 +243,7 @@ if __name__ == '__main__':
             )
 
         _cmap_data = _data.pop('data', None)
-        if _cmap_data:
+        if _cmap_data and isinstance(_cmap_data, dict):
             _host_data = _cmap_data.get('domainQuery', {}).get('host')
 
             if _host_data:
