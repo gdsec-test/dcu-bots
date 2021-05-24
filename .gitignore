@@ -7,6 +7,9 @@ classes/
 crontab.txt
 *.log.*
 
+# Certificate key files
+*.key
+
 __pycache__/
 *.py[cod]
 

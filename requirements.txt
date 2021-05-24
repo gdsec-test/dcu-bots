@@ -38,3 +38,7 @@ zope.interface==5.2.0
 
 # IRIS connection
 pyodbc==4.0.30
+
+# db_downtime requirements
+python-dateutil==2.8.1
+tld==0.12.5

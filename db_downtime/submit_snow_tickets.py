@@ -1,10 +1,14 @@
 import json
 import logging
 import os
+import re
 import sys
+import tld
 from configparser import ConfigParser
 from datetime import datetime
+from dateutil import parser
 from logging.config import dictConfig
+from tld.conf import set_setting
 from urllib.parse import quote
 
 import requests
@@ -12,6 +16,7 @@ import yaml
 from celery import Celery
 from kombu import Exchange, Queue
 from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError
 from requests import sessions
 
 
@@ -24,7 +29,7 @@ class CeleryConfig:
     CELERY_IMPORTS = 'run'
     CELERYD_HIJACK_ROOT_LOGGER = False
 
-    def __init__(self, _settings):
+    def __init__(self, _settings: dict):
         """
         :param _settings: dict
         """
@@ -51,17 +56,17 @@ class CMAPHelper:
     KEY_REG = 'registrar'
     KEY_SI = 'shopperInfo'
 
-    def __init__(self, _env_settings):
+    def __init__(self, _env_settings: dict):
         """
         :param _env_settings: dict
         """
         self._logger = logging.getLogger(__name__)
         self._url = _env_settings.get('cmap_service_url')
-        self._sso_endpoint = '{}/v1/secure/api/token'.format(_env_settings.get('sso_url'))
+        self._sso_endpoint = f'{_env_settings.get("sso_url")}/v1/secure/api/token'
         _cert = (_env_settings.get('cmap_service_cert'), _env_settings.get('cmap_service_key'))
-        self.HEADERS.update({'Authorization': 'sso-jwt {}'.format(self._get_jwt(_cert))})
+        self.HEADERS.update({'Authorization': f'sso-jwt {self._get_jwt(_cert)}'})
 
-    def _convert_unicode_to_date(self, _data_dict):
+    def _convert_unicode_to_date(self, _data_dict: dict) -> dict:
         """
         Registrar.domainCreateDate and shopperInfo.shopperCreateDate are returned in unicode, but we want to
         insert as date
@@ -75,15 +80,13 @@ class CMAPHelper:
             return {}
         # Convert domainCreateDate if exists
         if _dq.get(self.KEY_REG, {}).get(self.KEY_DCD):
-            _dq[self.KEY_REG][self.KEY_DCD] = datetime.strptime(_dq.get(self.KEY_REG, {}).get(self.KEY_DCD),
-                                                                self.DATE_FORMAT)
+            _dq[self.KEY_REG][self.KEY_DCD] = parser.parse(_dq.get(self.KEY_REG, {}).get(self.KEY_DCD))
         # Convert shopperCreateDate if exists
         if _dq.get(self.KEY_SI, {}).get(self.KEY_SCD):
-            _dq[self.KEY_SI][self.KEY_SCD] = datetime.strptime(_dq.get(self.KEY_SI, {}).get(self.KEY_SCD),
-                                                               self.DATE_FORMAT)
+            _dq[self.KEY_SI][self.KEY_SCD] = parser.parse(_dq.get(self.KEY_SI, {}).get(self.KEY_SCD))
         return _data_dict
 
-    def cmap_query(self, _domain):
+    def cmap_query(self, _domain: str) -> dict:
         """
         Returns query result of cmap service given a domain
         :param _domain:
@@ -95,7 +98,7 @@ class CMAPHelper:
             return _data
 
     @staticmethod
-    def determine_hosted_status(_host_brand, _registrar_brand):
+    def determine_hosted_status(_host_brand: str, _registrar_brand: str) -> str:
         """
         Will return the determined hosted status based on the brands provided
         :param _host_brand: string representing the brand which the domain is hosted with
@@ -103,20 +106,20 @@ class CMAPHelper:
         :return: string of determined hosted status
         """
         _hosted_status = 'UNKNOWN'
-        if _host_brand == 'GODADDY':
+        if _host_brand.upper() == 'GODADDY':
             _hosted_status = 'HOSTED'
-        elif _registrar_brand == 'GODADDY':
+        elif _registrar_brand.upper() == 'GODADDY':
             _hosted_status = 'REGISTERED'
-        elif _host_brand == 'FOREIGN':
+        elif _host_brand.upper() == 'FOREIGN':
             _hosted_status = 'FOREIGN'
         return _hosted_status
 
     @staticmethod
-    def _get_query(_domain_to_query):
+    def _get_query(_domain_to_query: str) -> str:
         """
         This returns the query that Kelvin Service uses
         :param _domain_to_query: string domain name to query
-        :return: dict of GraphQL query, including domain name to query
+        :return: string of GraphQL query, including domain name to query
         """
         return '''
 {
@@ -146,7 +149,7 @@ class CMAPHelper:
 }
 '''
 
-    def _get_jwt(self, _cert):
+    def _get_jwt(self, _cert: tuple) -> str:
         """
         Attempt to retrieve the JWT associated with the cert/key pair from SSO
         body data should resemble: {'type': 'signed-jwt', 'id': 'XXX', 'code': 1, 'message': 'Success', 'data': JWT}
@@ -167,7 +170,8 @@ class DBHelper:
     KEY_KELVIN_STATUS = 'kelvinStatus'
     KEY_USERGEN = 'userGen'
 
-    def __init__(self, _env_settings, _cmap_service, _db_name, _db_user, _db_pass, _kelvin=False):
+    def __init__(self, _env_settings: dict, _cmap_service: CMAPHelper, _db_name: str, _db_user: str,
+                 _db_pass: str, _kelvin: bool = False):
         """
         :param _env_settings: dict from ini settings file
         :param _cmap_service: handle to the cmap service helper
@@ -192,14 +196,52 @@ class DBHelper:
         _capp.config_from_object(CeleryConfig(_env_settings))
         self._celery = _capp
 
-    def close_connection(self):
+    def close_connection(self) -> None:
         """
         Closes the connection to the db
         :return: None
         """
         self._client.close()
 
-    def _convert_snow_ticket_to_mongo_record_kelvin(self, _snow_ticket):
+    def scrub_domain_ip_from_url(self, _source: str) -> str:
+        """
+        Need a way to scrub the domain/ip from the URL
+        :param _source:
+        :return:
+        """
+        set_setting(
+            'NAMES_LOCAL_PATH',
+            '/tmp/names.dat'
+        )
+        tld.utils.PROJECT_DIR = lambda x: x
+        hold_domain = _source
+        subdomain = ''
+
+        hold_domain = re.sub('https?://', '', hold_domain)  # Remove any http:// or https://
+
+        is_ip = re.match('^((\\d{1,3}\\.){3}(\\d{1,3}))', hold_domain)
+        if is_ip:
+            pass
+        else:  # Check for ipv6 match
+            is_ip = re.match('\\[?(([a-fA-F0-9]{0,4}:){1,7}[a-fA-F0-9]{0,4})', hold_domain)
+            if not is_ip:
+                try:
+                    domain_object = tld.get_tld(_source, as_object=True)
+                    domain = domain_object.fld
+                    if domain_object.subdomain is None or len(domain_object.subdomain) == 0:
+                        subdomain = domain
+                    else:
+                        subdomain = f'{domain_object.subdomain}.{domain}'
+
+                except Exception:
+                    self._logger.warning(f'{_source} not found in tld file...updating and retrying')
+                    tld.update_tld_names()
+
+                    tld.utils.tld_names = {}  # Clears out global tld_names to force it to update
+
+        return subdomain  # Prevents None being passed to gRPC calls expecting strings
+
+    def _convert_snow_ticket_to_mongo_record_kelvin(self, _snow_ticket: dict) -> dict:
         """
         Builds a dict in the format of a db record
         :param _snow_ticket: dict of SNOW ticket key/value pairs
@@ -230,17 +272,20 @@ class DBHelper:
                                                                         dq.get('registrar', {}).get('brand'))
         return _db_record
 
-    def _convert_snow_ticket_to_mongo_record_phishstory(self, _snow_ticket):
+    def _convert_snow_ticket_to_mongo_record_phishstory(self, _snow_ticket: dict) -> dict:
         """
         Builds a dict in the format of a db record
         :param _snow_ticket: dict of SNOW ticket key/value pairs
         :return: dict of DB record key/value pairs
         """
+        subdomain = self.scrub_domain_ip_from_url(_snow_ticket.get('u_source'))
         _db_record = {
-            'createdAt': datetime.strptime(_snow_ticket.get('sys_created_on'), '%Y-%m-%d %H:%M:%S'),
-            'ticketID': _snow_ticket.get('u_number'),
+            '_id': _snow_ticket.get('u_number'),
+            'created': datetime.strptime(_snow_ticket.get('sys_created_on'), '%Y-%m-%d %H:%M:%S'),
+            'ticketId': _snow_ticket.get('u_number'),
             'source': _snow_ticket.get('u_source'),
-            'sourceDomainOrIP': _snow_ticket.get('u_source_domain_or_ip'),
+            'sourceDomainOrIp': _snow_ticket.get('u_source_domain_or_ip'),
+            'sourceSubDomain': subdomain,
             'type': _snow_ticket.get('u_type'),
             'target': _snow_ticket.get('u_target', ''),
             'proxy': _snow_ticket.get('u_proxy_ip', ''),
@@ -248,12 +293,9 @@ class DBHelper:
         }
         if _snow_ticket.get('u_info'):
             _db_record['info'] = _snow_ticket['u_info']
-
-        self._send_to_middleware(_db_record)
-
         return _db_record
 
-    def create_tickets_based_on_snow(self, _list_of_snow_tickets):
+    def create_tickets_based_on_snow(self, _list_of_snow_tickets: list) -> None:
         """
         Loop through all SNOW tickets and if they don't exist in the DB, then create them
         :param _list_of_snow_tickets: list of dicts containing SNOW ticket key/value pairs
@@ -261,26 +303,35 @@ class DBHelper:
         """
         self._logger.info('Start DB Ticket Query/Creation')
         for _ticket in _list_of_snow_tickets:
-            # Check to see if ticket id exists in DB
-            if not self._collection.find_one({'ticketID': _ticket.get('u_number')}):
-                self._logger.info('Creating DB ticket for: {}'.format(_ticket.get('u_number')))
-                if self._kelvin:
-                    self._collection.insert_one(self._convert_snow_ticket_to_mongo_record_kelvin(_ticket))
-                else:
-                    self._collection.insert_one(self._convert_snow_ticket_to_mongo_record_phishstory(_ticket))
+            if self._kelvin:
+                # Check to see if ticket id exists in DB
+                if not self._collection.find_one({'ticketID': _ticket.get('u_number')}):
+                    self._logger.info(f'Creating DB ticket for: {_ticket.get("u_number")}')
+                    _payload = self._convert_snow_ticket_to_mongo_record_kelvin(_ticket)
+                    self._collection.insert_one(_payload)
+            else:
+                # Check to see if ticket id exists in DB
+                if not self._collection.find_one({'_id': _ticket.get('u_number')}):
+                    self._logger.info(f'Creating DB ticket for: {_ticket.get("u_number")}')
+                    _payload = self._convert_snow_ticket_to_mongo_record_phishstory(_ticket)
+                    try:
+                        self._collection.insert_one(_payload)
+                        self._send_to_middleware(_payload)
+                    except DuplicateKeyError:
+                        pass
         self._logger.info('Finish DB Ticket Query/Creation')
 
-    def _send_to_middleware(self, _payload):
+    def _send_to_middleware(self, _payload: dict) -> None:
         """
         A helper function to send Celery tasks to the Middleware Queue with the provided payload
         :param _payload:
         :return:
         """
         try:
-            self._logger.info('Sending payload to Middleware {}.'.format(_payload.get('ticketId')))
+            self._logger.info(f'Sending payload to Middleware {_payload.get("ticketId")}.')
             self._celery.send_task('run.process', (_payload,))
         except Exception as _e:
-            self._logger.error('Unable to send payload to Middleware {} {}.'.format(_payload.get('ticketId'), _e))
+            self._logger.error(f'Unable to send payload to Middleware {_payload.get("ticketId")} {_e}.')
 
 
 class SNOWHelper:
@@ -289,7 +340,7 @@ class SNOWHelper:
     """
     HEADERS = {'Content-Type': 'application/json', 'Accept': 'application/json'}
 
-    def __init__(self, _env_settings, _snow_table_url, _query_time):
+    def __init__(self, _env_settings: dict, _snow_table_url: str, _query_time: str):
         """
         :param _env_settings: dict from ini settings file
         :param _snow_table_url: string
@@ -299,7 +350,7 @@ class SNOWHelper:
         self._url = _env_settings.get(_snow_table_url).format(querytime=_query_time)
         self._auth = (_env_settings.get('snow_user'), _env_settings.get('snow_pass'))
 
-    def get_tickets_created_during_downtime(self):
+    def get_tickets_created_during_downtime(self) -> list:
         """
         Query SNOW to get all info for tickets created since _query_time
         :return: list of dicts containing snow tickets
@@ -314,20 +365,20 @@ class SNOWHelper:
                 self._logger.error('Unable to retrieve tickets from SNOW API {}: {}'.format(_response.status_code,
                                                                                             _response.json()))
         except Exception as _err:
-            self._logger.error('Exception while retrieving tickets from SNOW API {}'.format(_err))
+            self._logger.error(f'Exception while retrieving tickets from SNOW API {_err}')
         finally:
             self._logger.info('Finish SNOW Ticket Retrieval')
             return _data
 
 
-def read_config():
+def read_config() -> dict:
     """
     Reads the configuration ini file for the env specific settings
     :return: dict of configuration settings for the env
     """
     _dir_path = os.path.dirname(os.path.realpath(__file__))
     _config_p = ConfigParser()
-    _config_p.read('{}/connection_settings.ini'.format(_dir_path))
+    _config_p.read(f'{_dir_path}/connection_settings.ini')
     return dict(_config_p.items(os.getenv('sysenv', 'dev')))
 
 
@@ -364,7 +415,7 @@ if __name__ == '__main__':
     PROCESS_NAME = 'Mongo Downtime Ticket Process'
 
     # TODO: Need to provide a date and time to search from in the following format: 'YYYY-MM-DD','hh:mm:ss'
-    QUERY_TIME = "'3000-01-01','0:0:0'"
+    QUERY_TIME = "'YYYY-MM-DD','HH:MM:SS'"
 
     _logger = setup_logging()
 
@@ -377,7 +428,7 @@ if __name__ == '__main__':
         _cmap_client = CMAPHelper(_settings)
 
     except Exception as _e:
-        _logger.fatal('Cannot continue: {}'.format(_e))
+        _logger.fatal(f'Cannot continue: {_e}')
         sys.exit(-1)
 
     _run_products = {
@@ -386,7 +437,7 @@ if __name__ == '__main__':
     }
 
     for _name in _run_products:
-        _logger.info('Started {} for {}'.format(PROCESS_NAME, _name))
+        _logger.info(f'Started {PROCESS_NAME} for {_name}')
         try:
             # Create handle to SNOW
             _snow_client = SNOWHelper(_env_settings=_settings,
@@ -400,7 +451,7 @@ if __name__ == '__main__':
                                   _db_name=_db_creds[0],
                                   _db_user=_db_creds[1],
                                   _db_pass=_db_creds[2],
-                                  _kelvin=True if _name == 'kelvin' else False)
+                                  _kelvin=_name == 'kelvin')
 
             # Retrieve Mongo Downtime tickets from SNOW API
             _snow_tickets = _snow_client.get_tickets_created_during_downtime()
@@ -414,4 +465,4 @@ if __name__ == '__main__':
             if _db_client:
                 _db_client.close_connection()
                 _db_client = None
-            _logger.info('Finished {} for {}\n'.format(PROCESS_NAME, _name))
+            _logger.info(f'Finished {PROCESS_NAME} for {_name}\n')
