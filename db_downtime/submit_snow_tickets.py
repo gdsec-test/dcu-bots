@@ -106,6 +106,11 @@ class CMAPHelper:
         :return: string of determined hosted status
         """
         _hosted_status = 'UNKNOWN'
+        if not _host_brand:
+            _host_brand = 'UNKNOWN'
+        if not _registrar_brand:
+            _registrar_brand = 'UNKNOWN'
+
         if _host_brand.upper() == 'GODADDY':
             _hosted_status = 'HOSTED'
         elif _registrar_brand.upper() == 'GODADDY':
@@ -307,18 +312,23 @@ class DBHelper:
                 # Check to see if ticket id exists in DB
                 if not self._collection.find_one({'ticketID': _ticket.get('u_number')}):
                     self._logger.info(f'Creating DB ticket for: {_ticket.get("u_number")}')
-                    _payload = self._convert_snow_ticket_to_mongo_record_kelvin(_ticket)
-                    self._collection.insert_one(_payload)
+                    try:
+                        _payload = self._convert_snow_ticket_to_mongo_record_kelvin(_ticket)
+                        self._collection.insert_one(_payload)
+                    except Exception as e:
+                        self._logger.error(e)
             else:
                 # Check to see if ticket id exists in DB
                 if not self._collection.find_one({'_id': _ticket.get('u_number')}):
                     self._logger.info(f'Creating DB ticket for: {_ticket.get("u_number")}')
-                    _payload = self._convert_snow_ticket_to_mongo_record_phishstory(_ticket)
                     try:
+                        _payload = self._convert_snow_ticket_to_mongo_record_phishstory(_ticket)
                         self._collection.insert_one(_payload)
                         self._send_to_middleware(_payload)
                     except DuplicateKeyError:
                         pass
+                    except Exception as e:
+                        self._logger.error(e)
         self._logger.info('Finish DB Ticket Query/Creation')
 
     def _send_to_middleware(self, _payload: dict) -> None:
