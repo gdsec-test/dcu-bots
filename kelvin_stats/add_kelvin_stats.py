@@ -202,12 +202,12 @@ if __name__ == '__main__':
                 '$or': [
                     {
                         'lastModified': {
-                            '$gte': datetime.utcnow() - timedelta(hours=10)
+                            '$gte': datetime.utcnow() - timedelta(hours=1)
                         }
                     },
                     {
                         'closedAt': {
-                            '$gte': datetime.utcnow() - timedelta(hours=10)
+                            '$gte': datetime.utcnow() - timedelta(hours=1)
                         }
                     }
                 ]
@@ -216,7 +216,7 @@ if __name__ == '__main__':
 
         clean_pop(_data, ['_id', 'archiveCompleted', 'fileInfo', 'info', 'lastModified', 'messageID', 'ncmecReportID',
                           'notified', 'reporterEmail', 'reportFileID', 'source', 'sourceDomainOrIP', 'target',
-                          'ticketCategory', 'userGenHoldReason', 'userGenHoldUntil'])
+                          'ticketCategory', 'userGenHoldReason', 'userGenHoldUntil', 'opened'])
 
         _domain_brand_data = _data.pop('domain', None)
         if _domain_brand_data:
@@ -244,37 +244,41 @@ if __name__ == '__main__':
 
         _cmap_data = _data.pop('data', None)
         if _cmap_data and isinstance(_cmap_data, dict):
-            _host_data = _cmap_data.get('domainQuery', {}).get('host')
+            try:
+                _host_data = _cmap_data.get('domainQuery', {}).get('host')
 
-            if _host_data:
-                assign_keys(
-                    _data,
-                    _host_data,
-                    {
-                        'product': 'host_product',
-                        'dataCenter': 'host_data_center',
-                        'hostname': 'hostname',
-                        'mwpId': 'mwp_id',
-                        'guid': 'host_guid',
-                        'os': 'host_os'
-                    }
-                )
+                if _host_data:
+                    assign_keys(
+                        _data,
+                        _host_data,
+                        {
+                            'product': 'host_product',
+                            'dataCenter': 'host_data_center',
+                            'hostname': 'hostname',
+                            'mwpId': 'mwp_id',
+                            'guid': 'host_guid',
+                            'os': 'host_os'
+                        }
+                    )
 
-            _shopper_data = _cmap_data.get('domainQuery', {}).get('shopperInfo')
-            if _shopper_data:
-                assign_keys(
-                    _data,
-                    _shopper_data,
-                    {
-                        'shopperCity': 'shopper_city',
-                        'shopperState': 'shopper_state',
-                        'shopperCountry': 'shopper_country'
-                    }
-                )
+                _shopper_data = _cmap_data.get('domainQuery', {}).get('shopperInfo')
+                if _shopper_data:
+                    assign_keys(
+                        _data,
+                        _shopper_data,
+                        {
+                            'shopperCity': 'shopper_city',
+                            'shopperState': 'shopper_state',
+                            'shopperCountry': 'shopper_country'
+                        }
+                    )
+            except AttributeError as e:
+                _logger.error(f'Unable to determine host sub-document: {e}')
 
         _meta = _data.pop('metadata', None)
         if _meta:
             _meta.pop('iris_id', None)
+            _meta.pop('reclassified_from', None)
             _data = merge_dicts(_data, _meta)
 
         for _time_types in ['createdAt', 'closedAt', 'iris_created']:
@@ -282,6 +286,9 @@ if __name__ == '__main__':
             if _time_type:
                 _data[_time_types] = time_format(_time_type, _logger)
 
-        _rabbit.publish(_data)
+        try:
+            _rabbit.publish(_data)
+        except Exception as e:
+            _logger.error(f'Unable to publish {_data} to rabbit: {e}')
 
     _logger.info('Finished Kelvin stats retrieval')
