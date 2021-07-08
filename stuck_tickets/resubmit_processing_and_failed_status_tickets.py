@@ -55,13 +55,14 @@ class ReturnToMiddleware:
 
     def find_failed_enrichment_tickets(self):
         """
-        Retrieves tickets in MongoDB that have failed enrichment and reinserts the task into Middleware queue for
-        processing.
+        Retrieves tickets in MongoDB that have failed enrichment, which includes missing the vipHandling key,
+        and reinserts the task into Middleware queue for processing.
         :return: None
         """
-        for _ticket in self._mongo.handle().find({'failedEnrichment': True,
-                                                  'phishstory_status': 'OPEN',
-                                                  'created': {'$lte': datetime.utcnow() - timedelta(hours=48)}}):
+        for _ticket in self._mongo.handle().find({'phishstory_status': 'OPEN',
+                                                  'created': {'$lte': datetime.utcnow() - timedelta(hours=48)},
+                                                  '$and': [{'$or': [{'failedEnrichment': True},
+                                                                    {'vipHandling': {'$exists': False}}]}]}):
             self._send_to_middleware(_ticket)
 
     def _send_to_middleware(self, _payload):
