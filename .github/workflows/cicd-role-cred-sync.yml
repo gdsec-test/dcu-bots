@@ -1,0 +1,34 @@
+name: Sync CICD creds
+on:
+  schedule:
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
+jobs:
+  sync-cloudservice-credentials:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out build actions
+        uses: actions/checkout@v2
+        with:
+          repository: gdcorp-actions/update-cloud-service-credentials
+          token: ${{ secrets.CI_TOKEN }}
+          path: update-cloud-service-credentials
+
+      - name: Configure CICD credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_CICD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_CICD }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_CICD }}
+          role-duration-seconds: 3600
+          aws-region: us-west-2
+      - name: Update CICD secrets
+        uses: ./update-cloud-service-credentials
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPO_PAT }}
+        with:
+          aws-secret-id: /Secrets/IAMUser/GD-AWS-DeployUser-dcuabuse-CICD
+          access-key-id-secret-name: AWS_ACCESS_KEY_ID_CICD
+          secret-access-key-secret-name: AWS_SECRET_ACCESS_KEY_CICD
+          org: gdcorp-infosec
+          repository: dcu-bots

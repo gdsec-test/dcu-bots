@@ -1,0 +1,51 @@
+name: Run CI
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+      - master
+jobs:
+  scale-out-runner:
+    concurrency: main
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout DCU actions
+        uses: actions/checkout@v2
+        with:
+          repository: gdcorp-infosec/dcu-actions
+          token: ${{ secrets.REPO_PAT }}
+          path: local-actions/dcu-actions
+      - name: Scale Runners
+        uses: ./local-actions/dcu-actions/scale
+        with:
+          aws-access-key: ${{ secrets.AWS_ACCESS_KEY_ID_CICD }}
+          aws-secret-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_CICD }}
+          aws-deploy-role: ${{ secrets.AWS_DEPLOY_ROLE_CICD }}
+          repo-pat: ${{ secrets.REPO_PAT }}
+  ci:
+    needs: scale-out-runner
+    runs-on: [ec2ubuntu]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8.7
+          architecture: 'x64'
+      - name: Checkout DCU actions
+        uses: actions/checkout@v2
+        with:
+          repository: gdcorp-infosec/dcu-actions
+          token: ${{ secrets.REPO_PAT }}
+          path: local-actions/dcu-actions
+      - name: Python CI
+        uses: ./local-actions/dcu-actions/legacy-python
+        with:
+          aws-access-key: ${{ secrets.AWS_ACCESS_KEY_ID_CICD }}
+          aws-secret-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_CICD }}
+          aws-deploy-role: ${{ secrets.AWS_DEPLOY_ROLE_CICD }}
+          repo-pat: ${{ secrets.REPO_PAT }}
