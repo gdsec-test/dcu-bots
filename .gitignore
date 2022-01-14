@@ -76,3 +76,5 @@ docker-compose.yml
 
 # settings files
 *.ini
+.venv/
+db_downtime/certs/

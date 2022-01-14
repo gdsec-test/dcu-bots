@@ -57,18 +57,16 @@ pdna_reporter_id = 222151473
 db_url = <DB_URL>
 db_auth_mechanism = MONGODB-CR
 #PhishStory
-db_user = <DB_USER_FOR_PHISHSTORY>
-db_pass = <DB_PASS_FOR_PHISHSTORY>
+phishstory_url=<mongo connection string for phishstory>
 db = <DB_FOR_PHISHSTORY>
 #Kelvin
-db_user_k = <DB_USER_FOR_KELVIN>
-db_pass_k = <DB_PASS_FOR_KELVIN>
+kelvin_url=<mongo connection string for kelvin>
 db_k = <DB_FOR_KELVIN>
 #SNOW
 snow_user = <SNOW_USER>
 snow_pass = <SNOW_PASS>
-snow_url = https://godaddy.service-now.com/api/now/table/u_dcu_tickets?sysparm_query=sys_created_on>=javascript:gs.dateGenerate({querytime})
-snow_kelvin_url = https://godaddy.service-now.com/api/now/table/u_dcu_kelvin?sysparm_query=sys_created_on>=javascript:gs.dateGenerate({querytime})
+snow_url = https://godaddy.service-now.com/api/now/table/u_dcu_ticket?sysparm_query=sys_created_on>=javascript:gs.dateGenerate({querytime})^sys_created_on<javascript:gs.dateGenerate({endtime})
+snow_kelvin_url = https://godaddy.service-now.com/api/now/table/u_dcu_kelvin?sysparm_query=sys_created_on>=javascript:gs.dateGenerate({querytime})^sys_created_on<javascript:gs.dateGenerate({endtime})
 #CELERY
 celery_queue = <CELERY_QUEUE>
 #SLACK
@@ -85,18 +83,16 @@ pdna_reporter_id = 1767806
 db_url = <DB_URL>
 db_auth_mechanism = SCRAM-SHA-1
 #PhishStory specific
-db_user = <DB_USER_FOR_PHISHSTORY>
-db_pass = <DB_PASS_FOR_PHISHSTORY>
+phishstory_url=<mongo connection string for phishstory>
 db = <DB_FOR_PHISHSTORY>
 #Kelvin specific
-db_user_k = <DB_USER_FOR_KELVIN>
-db_pass_k = <DB_PASS_FOR_KELVIN>
+kelvin_url=<mongo connection string for kelvin>
 db_k = <DB_FOR_KELVIN>
 #SNOW
 snow_user = <SNOW_USER>
 snow_pass = <SNOW_PASS>
-snow_url = https://godaddydev.service-now.com/api/now/table/u_dcu_tickets?sysparm_query=sys_created_on>=javascript:gs.dateGenerate({querytime})
-snow_kelvin_url = https://godaddydev.service-now.com/api/now/table/u_dcu_kelvin?sysparm_query=sys_created_on>=javascript:gs.dateGenerate({querytime})
+snow_url = https://godaddy.service-now.com/api/now/table/u_dcu_ticket?sysparm_query=sys_created_on>=javascript:gs.dateGenerate({querytime})^sys_created_on<javascript:gs.dateGenerate({endtime})
+snow_kelvin_url = https://godaddy.service-now.com/api/now/table/u_dcu_kelvin?sysparm_query=sys_created_on>=javascript:gs.dateGenerate({querytime})^sys_created_on<javascript:gs.dateGenerate({endtime})
 #CELERY
 celery_queue = <CELERY_QUEUE>
 #SLACK
