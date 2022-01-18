@@ -175,30 +175,20 @@ class DBHelper:
     KEY_KELVIN_STATUS = 'kelvinStatus'
     KEY_USERGEN = 'userGen'
 
-    def __init__(self, _env_settings: dict, _cmap_service: CMAPHelper, _db_name: str, _db_user: str,
-                 _db_pass: str, _kelvin: bool = False):
+    def __init__(self, env_settings: dict, cmap_service: CMAPHelper, db_name: str, db_url: str, kelvin: bool = False):
         """
-        :param _env_settings: dict from ini settings file
-        :param _cmap_service: handle to the cmap service helper
-        :param _db_name: string
-        :param _db_user: string
-        :param _db_pass: string
-        :param _kelvin: bool if Kelvin tickets
         """
         self._logger = logging.getLogger(__name__)
-        _client = MongoClient(_env_settings.get('db_url'))
-        _client[_env_settings.get(_db_name)].authenticate(_env_settings.get(_db_user),
-                                                          _env_settings.get(_db_pass),
-                                                          mechanism=_env_settings.get('db_auth_mechanism'))
-        _db = _client[_settings.get(_db_name)]
-        self._collection = _db.incidents
-        self._pdna_reporter = _env_settings.get('pdna_reporter_id')
-        self._cmap = _cmap_service
+        _client = MongoClient(env_settings.get(db_url))
+        _db = _client[_settings.get(db_name)]
+        self._collection = _db['incidents']
+        self._pdna_reporter = env_settings.get('pdna_reporter_id')
+        self._cmap = cmap_service
         self._client = _client
-        self._kelvin = _kelvin
+        self._kelvin = kelvin
 
         _capp = Celery()
-        _capp.config_from_object(CeleryConfig(_env_settings))
+        _capp.config_from_object(CeleryConfig(env_settings))
         self._celery = _capp
 
     def close_connection(self) -> None:
@@ -350,14 +340,11 @@ class SNOWHelper:
     """
     HEADERS = {'Content-Type': 'application/json', 'Accept': 'application/json'}
 
-    def __init__(self, _env_settings: dict, _snow_table_url: str, _query_time: str):
+    def __init__(self, _env_settings: dict, _snow_table_url: str, _query_time: str, _end_time: str):
         """
-        :param _env_settings: dict from ini settings file
-        :param _snow_table_url: string
-        :param _query_time: string representing date to start querying tickets from
         """
         self._logger = logging.getLogger(__name__)
-        self._url = _env_settings.get(_snow_table_url).format(querytime=_query_time)
+        self._url = _env_settings.get(_snow_table_url).format(querytime=_query_time, endtime=_end_time)
         self._auth = (_env_settings.get('snow_user'), _env_settings.get('snow_pass'))
 
     def get_tickets_created_during_downtime(self) -> list:
@@ -389,7 +376,7 @@ def read_config() -> dict:
     _dir_path = os.path.dirname(os.path.realpath(__file__))
     _config_p = ConfigParser()
     _config_p.read(f'{_dir_path}/connection_settings.ini')
-    return dict(_config_p.items(os.getenv('sysenv', 'dev')))
+    return dict(_config_p.items(os.getenv('sysenv', 'prod')))
 
 
 def setup_logging():
@@ -425,7 +412,8 @@ if __name__ == '__main__':
     PROCESS_NAME = 'Mongo Downtime Ticket Process'
 
     # TODO: Need to provide a date and time to search from in the following format: 'YYYY-MM-DD','hh:mm:ss'
-    QUERY_TIME = "'YYYY-MM-DD','HH:MM:SS'"
+    start_time = "'YYYY-MM-DD','HH:MM:SS'"
+    end_time = "'YYYY-MM-DD','HH:MM:SS'"
 
     _logger = setup_logging()
 
@@ -442,8 +430,8 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     _run_products = {
-        'kelvin': {'url': 'snow_kelvin_url', 'db': 'db_k|db_user_k|db_pass_k'},
-        'phishstory': {'url': 'snow_url', 'db': 'db|db_user|db_pass'}
+        'kelvin': {'url': 'snow_kelvin_url', 'db_conn': 'kelvin_url', 'db': 'db_k'},
+        'phishstory': {'url': 'snow_url', 'db_conn': 'phishstory_url', 'db': 'db'}
     }
 
     for _name in _run_products:
@@ -452,16 +440,15 @@ if __name__ == '__main__':
             # Create handle to SNOW
             _snow_client = SNOWHelper(_env_settings=_settings,
                                       _snow_table_url=_run_products.get(_name).get('url'),
-                                      _query_time=QUERY_TIME)
+                                      _query_time=start_time,
+                                      _end_time=end_time)
 
             # Create handle to the DB
-            _db_creds = _run_products.get(_name).get('db', '').split('|')
-            _db_client = DBHelper(_env_settings=_settings,
-                                  _cmap_service=_cmap_client,
-                                  _db_name=_db_creds[0],
-                                  _db_user=_db_creds[1],
-                                  _db_pass=_db_creds[2],
-                                  _kelvin=_name == 'kelvin')
+            _db_client = DBHelper(env_settings=_settings,
+                                  cmap_service=_cmap_client,
+                                  db_name=_run_products.get(_name).get('db'),
+                                  db_url=_run_products.get(_name).get('db_conn'),
+                                  kelvin=_name == 'kelvin')
 
             # Retrieve Mongo Downtime tickets from SNOW API
             _snow_tickets = _snow_client.get_tickets_created_during_downtime()
